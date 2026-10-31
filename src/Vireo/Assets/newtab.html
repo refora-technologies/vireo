@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New tab</title>
+<style>
+  @font-face { font-family: "Jakarta"; src: url(fonts/PlusJakartaSans-Regular.woff2) format("woff2"); font-weight: 400; font-display: block; }
+  @font-face { font-family: "Jakarta"; src: url(fonts/PlusJakartaSans-Medium.woff2) format("woff2"); font-weight: 500; font-display: block; }
+  @font-face { font-family: "Jakarta"; src: url(fonts/PlusJakartaSans-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: block; }
+  @font-face { font-family: "Jakarta"; src: url(fonts/PlusJakartaSans-Bold.woff2) format("woff2"); font-weight: 700; font-display: block; }
+  @font-face { font-family: "Jakarta"; src: url(fonts/PlusJakartaSans-ExtraBold.woff2) format("woff2"); font-weight: 800; font-display: block; }
+
+  /* "Soft frame": the same palette as the window around this page. */
+  :root {
+    color-scheme: dark;
+    --page: #161D1C; --card: #1B2423; --field: #131A19; --tile: #222D2B; --tile-hover: #2A3735; --search: #1F2928;
+    --line: rgba(255,255,255,.07); --line2: rgba(255,255,255,.14);
+    --text: #EAF2F0; --t2: #A9BAB6; --t3: #829591;
+    --accent: #3DDBB9; --accent-strong: #5FE6C8; --accent-soft: rgba(61,219,185,.14); --ink: #04241D; --bad: #FF8A8A;
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--page); color: var(--text); font: 14px/1.5 "Jakarta", "Segoe UI", system-ui, sans-serif; font-feature-settings: "tnum"; -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; color: inherit; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 24px; }
+
+  /* Mark and name */
+  /* The mark and the name as one lockup: the tile is as tall as the name's capitals plus a little, centred on them. */
+  .hero { display: flex; align-items: center; gap: 14px; margin-top: max(6vh, 32px); }
+  .hero img { width: 52px; height: 52px; display: block; }
+  .hero b { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; display: block; transform: translateY(var(--name-nudge, -2px)); }
+
+  /* Search */
+  form.search { width: min(640px, 100%); height: 52px; margin-top: 28px; display: flex; align-items: center; gap: 14px; padding: 0 20px; border-radius: 999px;
+    background: var(--search); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); transition: box-shadow .15s, background .15s; }
+  form.search:focus-within { box-shadow: inset 0 0 0 1px rgba(61,219,185,.45), 0 8px 30px -12px rgba(61,219,185,.35); background: #212C2B; }
+  .search svg { width: 20px; height: 20px; stroke: var(--t2); fill: none; stroke-width: 2; stroke-linecap: round; flex: none; }
+  .search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; font-size: 16px; }
+  .search input::placeholder { color: #8EA19D; }
+
+  /* Your sites */
+  .sites { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 30px; max-width: 960px; }
+  .site { width: 92px; position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0 10px; border-radius: 14px; cursor: pointer; transition: background .12s; min-width: 0; }
+  .site:hover { background: rgba(255,255,255,.04); }
+  .tile { width: 52px; height: 52px; border-radius: 16px; background: var(--tile); display: grid; place-items: center; transition: background .12s, transform .2s var(--ease); }
+  .site:hover .tile { background: var(--tile-hover); transform: translateY(-1px); }
+  .tile img { width: 24px; height: 24px; }
+  .tile b { font-size: 19px; font-weight: 700; color: var(--t2); }
+  .site span { max-width: 86px; font-size: 12.5px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .site.add .tile { background: transparent; border: 1.5px dashed rgba(255,255,255,.2); color: var(--t2); font-size: 22px; font-weight: 300; }
+  .site.add:hover .tile { border-color: var(--accent); color: var(--accent); }
+  .pin { position: absolute; top: 12px; left: 22px; width: 7px; height: 7px; border-radius: 4px; background: var(--accent); box-shadow: 0 0 0 2px var(--page); }
+  .acts { position: absolute; top: 6px; right: 8px; display: none; gap: 3px; }
+  .site:hover .acts { display: flex; }
+  .acts button { width: 22px; height: 22px; border: 0; border-radius: 7px; background: #2D3A38; color: var(--t2); font-size: 11px; cursor: pointer; padding: 0; }
+  .acts button:hover { background: #3A4A47; color: var(--text); }
+
+  /* Downloads */
+  .card { width: min(640px, 100%); margin-top: 28px; border-radius: 18px; background: var(--card); border: 1px solid rgba(255,255,255,.06); padding: 18px 18px 14px; }
+  .head { display: flex; align-items: center; gap: 18px; margin-bottom: 8px; }
+  .k { font-size: 12px; color: var(--t3); font-weight: 500; }
+  .speed { font-size: 13px; color: var(--t2); margin-top: 1px; white-space: nowrap; }
+  .speed b { font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .spark { flex: 1; height: 34px; display: flex; align-items: flex-end; gap: 3px; }
+  .spark i { flex: 1; min-height: 2px; border-radius: 2px; background: var(--accent); opacity: .85; transition: height .6s var(--ease); }
+  .spark.idle { visibility: hidden; }
+  .all { font-size: 13px; color: var(--accent-strong); font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item { display: flex; align-items: center; gap: 14px; padding: 12px 6px; border-top: 1px solid var(--line); }
+  .badge { width: 40px; height: 40px; flex: none; border-radius: 11px; background: var(--tile); display: grid; place-items: center; font-size: 10.5px; font-weight: 700; color: var(--t2); letter-spacing: .02em; }
+  .meta { flex: 1; min-width: 0; }
+  .name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); margin: 8px 0 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); transition: width .8s var(--ease); }
+  .item.paused .bar i { background: #6B7C78; }
+  .sub { font-size: 12px; color: var(--t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item.done .sub, .item.failed .sub { margin-top: 3px; }
+  .item.failed .sub { color: var(--bad); }
+  .pct { width: 48px; flex: none; text-align: right; font-size: 13px; font-weight: 600; color: var(--accent-strong); display: flex; justify-content: flex-end; }
+  .item.paused .pct { color: var(--t3); }
+  .empty { color: var(--t3); font-size: 13px; padding: 12px 6px 4px; border-top: 1px solid var(--line); line-height: 1.6; }
+  .empty b { color: var(--t2); font-weight: 600; }
+
+  form.paste { margin-top: 8px; height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 5px 0 14px; border-radius: 12px; background: var(--field); border: 1px solid transparent; transition: border-color .15s; }
+  form.paste:focus-within { border-color: rgba(61,219,185,.6); }
+  .paste svg { width: 16px; height: 16px; stroke: var(--t3); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .paste input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; outline: none; font-size: 13.5px; }
+  .paste input::placeholder { color: var(--t3); }
+  .paste button { height: 36px; padding: 0 18px; border: 0; border-radius: 9px; background: var(--accent); color: var(--ink); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .paste button:hover { background: var(--accent-strong); }
+  .paste button:disabled { opacity: .5; cursor: default; }
+  .result { min-height: 18px; font-size: 12.5px; color: var(--t2); padding: 6px 4px 0; }
+  .result:empty { display: none; }
+  .result.ok { color: var(--accent-strong); } .result.bad { color: var(--bad); }
+
+  footer { margin-top: auto; padding: 26px 0 18px; display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--t3); text-align: center; }
+  footer svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2; flex: none; }
+
+  dialog { border: 1px solid var(--line2); border-radius: 16px; background: #1F2928; color: var(--text); padding: 22px; width: 380px; }
+  dialog::backdrop { background: rgba(5,10,9,.6); }
+  dialog h3 { margin: 0 0 14px; font-size: 16px; font-weight: 700; }
+  dialog label { display: block; font-size: 12px; color: var(--t2); margin: 12px 0 6px; }
+  dialog input { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line2); background: var(--field); padding: 0 12px; font-size: 14px; outline: none; }
+  dialog input:focus { border-color: var(--accent); }
+  dialog .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  dialog button { height: 36px; padding: 0 16px; border-radius: 9px; border: 1px solid var(--line2); background: transparent; cursor: pointer; font-weight: 600; }
+  dialog button.go { background: var(--accent); color: var(--ink); border: 0; }
+
+  .fade { animation: fade .5s var(--ease) both; }
+  .fade.d1 { animation-delay: .05s; } .fade.d2 { animation-delay: .1s; } .fade.d3 { animation-delay: .15s; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero fade">
+    <img src="vireo-mark.svg" alt="" width="52" height="52">
+    <b>Vireo</b>
+  </div>
+
+  <form class="search fade d1" id="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input name="q" id="q" placeholder="Search or type an address" autocomplete="off" autofocus aria-label="Search or type an address">
+  </form>
+
+  <nav class="sites fade d2" id="sites" aria-label="Your sites"></nav>
+
+  <section class="card fade d3" aria-label="Downloads">
+    <div class="head">
+      <div><div class="k" id="dlState">Downloads</div><div class="speed" id="speedText"><b>0</b> KB/s</div></div>
+      <div class="spark idle" id="spark"></div>
+      <a class="all" id="openDl" title="Ctrl+J">All downloads</a>
+    </div>
+    <ul class="items" id="items"></ul>
+    <form class="paste" id="paste">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+      <input id="link" placeholder="Paste any link: a video page, a stream, a file" autocomplete="off" aria-label="Link to download">
+      <button id="go" type="submit">Download</button>
+    </form>
+    <div class="result" id="result" role="status"></div>
+  </section>
+
+  <footer id="footer"></footer>
+
+  <dialog id="siteDlg">
+    <form method="dialog" id="siteForm">
+      <h3 id="siteDlgTitle">Add a site</h3>
+      <label for="siteName">Name</label><input id="siteName" maxlength="40" autocomplete="off">
+      <label for="siteUrl">Address</label><input id="siteUrl" placeholder="example.com" autocomplete="off" required>
+      <div class="row"><button type="button" id="siteCancel">Cancel</button><button class="go" type="submit">Save</button></div>
+    </form>
+  </dialog>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const wv = window.chrome && window.chrome.webview;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const ext = n => { const m = /\.([a-z0-9]{1,4})$/i.exec(n); return m ? m[1].toUpperCase() : 'FILE'; };
+  const fmt = n => Number(n).toLocaleString();
+  const CHECK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-label="done"><path d="M5 12.5l4.5 4.5L19 7"/></svg>';
+  const SHIELD = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/></svg>';
+
+  // Search goes through the browser, so it follows the engine chosen in Settings.
+  $('search').addEventListener('submit', e => {
+    const q = $('q').value.trim();
+    if (wv) { e.preventDefault(); if (q) wv.postMessage({ t: 'search', q }); }
+  });
+
+  $('paste').addEventListener('submit', e => {
+    e.preventDefault();
+    const url = $('link').value.trim();
+    if (!url) { $('link').focus(); return; }
+    if (!wv) { $('result').textContent = 'Open this page in Vireo.'; return; }
+    $('go').disabled = true; $('result').className = 'result'; $('result').textContent = 'Reading the link…';
+    wv.postMessage({ t: 'quick-dl', url });
+  });
+  $('openDl').addEventListener('click', () => wv && wv.postMessage({ t: 'open-panel', panel: 'downloads' }));
+
+  // Speed over the last minute, as thirty small bars
+  const BARS = 30;
+  $('spark').innerHTML = '<i></i>'.repeat(BARS);
+  function spark(values, live) {
+    const v = values.slice(-BARS);
+    while (v.length < BARS) v.unshift(0);
+    const max = Math.max(1, ...v);
+    [...$('spark').children].forEach((bar, i) => bar.style.height = Math.max(6, (v[i] / max) * 100) + '%');
+    $('spark').className = 'spark' + (live ? '' : ' idle');
+  }
+
+  // Your sites: pinned ones first (a dot marks them), then the ones you visit most. Hover a tile to edit or remove it.
+  let sitesKey = '', editing = null;
+  function sites(top) {
+    const key = JSON.stringify(top.map(s => [s.url, s.title, !!s.icon, !!s.pinned]));
+    if (key === sitesKey) return;
+    sitesKey = key;
+    const tiles = top.slice(0, 10).map(s => {
+      let host = ''; try { host = new URL(s.url).hostname.replace(/^www\./, ''); } catch {}
+      const mark = s.icon ? `<img src="${esc(s.icon)}" alt="">` : `<b>${esc((host[0] || '?').toUpperCase())}</b>`;
+      return `<a class="site" href="${esc(s.url)}" title="${esc(host)}" data-url="${esc(s.url)}" data-title="${esc(s.title || host)}">${s.pinned ? '<i class="pin" title="Pinned"></i>' : ''}<div class="acts"><button data-act="edit" title="Edit">✎</button><button data-act="remove" title="Remove">✕</button></div><div class="tile">${mark}</div><span>${esc(s.title || host)}</span></a>`;
+    });
+    if (top.length < 10) tiles.push('<a class="site add" data-act="add" title="Add a site"><div class="tile">+</div><span>Add site</span></a>');
+    $('sites').innerHTML = tiles.join('');
+  }
+  $('sites').addEventListener('click', e => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    e.preventDefault();
+    const tile = btn.closest('.site');
+    const act = btn.dataset.act;
+    if (act === 'remove') { wv && wv.postMessage({ t: 'site-remove', url: tile.dataset.url }); return; }
+    editing = act === 'edit' ? tile.dataset.url : null;
+    $('siteDlgTitle').textContent = editing ? 'Edit site' : 'Add a site';
+    $('siteName').value = editing ? tile.dataset.title : '';
+    $('siteUrl').value = editing ? tile.dataset.url : '';
+    $('siteDlg').showModal();
+    (editing ? $('siteName') : $('siteUrl')).focus();
+  });
+  $('siteCancel').addEventListener('click', () => $('siteDlg').close());
+  $('siteForm').addEventListener('submit', () => {
+    const url = $('siteUrl').value.trim();
+    if (url && wv) wv.postMessage(editing ? { t: 'site-edit', old: editing, title: $('siteName').value, url } : { t: 'site-add', title: $('siteName').value, url });
+  });
+
+  function render(d) {
+    $('q').placeholder = `Search with ${d.engine || 'your search engine'} or type an address`;
+    const live = d.active > 0;
+    $('dlState').textContent = live ? 'Downloading' : d.queued ? 'Waiting' : 'Downloads';
+    $('speedText').innerHTML = live ? `<b>${esc(d.speedNumber)}</b> ${esc(d.speedUnit)}` : d.queued ? `<b>${d.queued}</b> waiting` : '<b>Idle</b>';
+    spark(d.speeds || [], live);
+    if (d.top) sites(d.top);
+
+    $('items').innerHTML = d.downloads && d.downloads.length
+      ? d.downloads.slice(0, 3).map(x => {
+          const pct = Math.round(x.pct * 100);
+          const cls = x.state || 'active';
+          const bar = cls === 'done' || cls === 'failed' ? '' : `<div class="bar"><i style="width:${pct}%"></i></div>`;
+          const right = cls === 'done' ? CHECK : cls === 'failed' ? '' : `${pct}%`;
+          return `<li class="item ${cls}"><div class="badge">${esc(ext(x.name))}</div><div class="meta"><div class="name" title="${esc(x.name)}">${esc(x.name)}</div>${bar}<div class="sub">${esc(x.detail)}</div></div><div class="pct">${right}</div></li>`;
+        }).join('')
+      : '<li class="empty">Nothing yet. Paste a link below, or press <b>Save video</b> on any page that plays one. Big files come down over many connections at once and resume after a break.</li>';
+
+    const parts = [`${fmt(d.ads)} ads and ${fmt(d.trackers)} trackers blocked this session`];
+    if (d.found) parts.push(`${fmt(d.found)} ${d.found === 1 ? 'video' : 'videos'} ready to save in your tabs`);
+    if (d.done) parts.push(`${fmt(d.done)} finished today`);
+    $('footer').innerHTML = SHIELD + parts.map(esc).join(' · ');
+  }
+
+  if (wv) {
+    wv.addEventListener('message', ev => {
+      const d = ev.data;
+      if (!d) return;
+      if (d.t === 'home') render(d);
+      else if (d.t === 'quick-dl-result') {
+        $('go').disabled = false;
+        $('result').className = 'result ' + (d.ok ? 'ok' : 'bad');
+        $('result').textContent = d.text;
+        if (d.ok) $('link').value = '';
+      }
+    });
+    wv.postMessage({ t: 'home-hello' });
+  } else render({ speedNumber: '0', speedUnit: 'KB/s', active: 0, queued: 0, done: 0, speeds: [], downloads: [], top: [], ads: 0, trackers: 0, found: 0, engine: 'Google' });
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+out/
+*.user
+.vs/
+
+# Packages (kept beside the project, see nuget.config) and the image scripts' tools
+.nuget/
+node_modules/
+
+# Test profiles, downloaded filter lists and anything a test run writes
+.data/
+lists/
+TestResults/
+
+# Working material that stays on the developer's machine
+design/
+RESEARCH.md
+PROGRESS.json

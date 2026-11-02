@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" mediaPresentationDuration="PT4M12S" minBufferTime="PT2S">
+  <Period>
+    <AdaptationSet mimeType="video/mp4" segmentAlignment="true">
+      <Representation id="1080" bandwidth="4800000" width="1920" height="1080" codecs="av01.0.08M.08" frameRate="30"/>
+      <Representation id="720" bandwidth="2600000" width="1280" height="720" codecs="av01.0.05M.08" frameRate="30"/>
+      <Representation id="480" bandwidth="1200000" width="854" height="480" codecs="avc1.64001e" frameRate="30"/>
+    </AdaptationSet>
+    <AdaptationSet mimeType="audio/mp4" lang="en"><Representation id="a-en" bandwidth="128000" codecs="mp4a.40.2"/></AdaptationSet>
+    <AdaptationSet mimeType="audio/mp4" lang="es"><Representation id="a-es" bandwidth="128000" codecs="mp4a.40.2"/></AdaptationSet>
+    <AdaptationSet mimeType="text/vtt" lang="en"><Representation id="t-en" bandwidth="1"/></AdaptationSet>
+  </Period>
+</MPD>

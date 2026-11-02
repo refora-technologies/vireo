@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><title>First video - SPA test</title>
+<meta property="og:title" content="First video"><meta property="og:url" content="/pages/spa.html?v=1"><meta property="og:image" content="/poster.jpg">
+</head><body><video src="/clip.mp4" controls preload="metadata"></video>
+<button id="next" onclick="history.pushState({}, '', '/pages/spa.html?v=2'); document.title = 'Second video - SPA test'; document.querySelector('video').src = '/fractal.webm';">Next</button>
+</body></html>

@@ -1,0 +1,4 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Real stream check</title>
+
+<style>body{font-family:system-ui;background:#111;color:#eee;margin:40px}video{max-width:640px;display:block;margin:12px 0}</style>
+</head><body><h1>Real stream check</h1><script>const u=new URLSearchParams(location.search).get('u'); document.title=(new URLSearchParams(location.search).get('t')||'Real stream')+' - check'; fetch(u).catch(()=>{});</script></body></html>

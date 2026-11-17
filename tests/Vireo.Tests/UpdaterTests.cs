@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -153,6 +154,31 @@ public class UpdaterTests
             Assert.True(Updater.NextCheckIn(u.FailuresInARow) < TimeSpan.FromHours(1));
         }
         finally { Environment.SetEnvironmentVariable("VIREO_UPDATE_FEED", null); Directory.Delete(folder, true); }
+    }
+
+    /// <summary>
+    /// The real published release, read exactly as an installed Vireo reads it (no sign-in): its version, its installer and
+    /// checksum found by name, and the installer matching the checksum. Run after publishing: VIREO_LIVE=1 dotnet test --filter Published.
+    /// </summary>
+    [Fact]
+    public async Task Published_release_is_one_the_updater_can_install()
+    {
+        if (Environment.GetEnvironmentVariable("VIREO_LIVE") != "1") return;
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("User-Agent", "Vireo-release-check");
+        http.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+        var json = await http.GetStringAsync($"https://api.github.com/repos/{Updater.Owner}/{Updater.Repo}/releases/latest");
+        var info = Updater.ParseRelease(json);
+        Assert.NotNull(info);
+        Assert.Matches(@"^v\d+\.\d+\.\d+$", info!.Tag);
+        Assert.NotNull(info.InstallerUrl);
+        Assert.NotNull(info.ChecksumUrl);
+        Assert.Equal($"VireoSetup-{Updater.Label(info.Version)}.exe", Updater.SafeInstallerName(info));
+        var expected = Updater.ParseSha256(await http.GetStringAsync(info.ChecksumUrl));
+        Assert.NotNull(expected);
+        var installer = await http.GetByteArrayAsync(info.InstallerUrl);
+        Assert.Equal(info.InstallerSize, installer.Length);
+        Assert.Equal(expected, Hash(installer));
     }
 
     private static string Release(string tag, params (string Name, string Url)[] assets) =>

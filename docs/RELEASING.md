@@ -44,6 +44,16 @@ Download `VireoSetup.exe` from the draft and check, on at least one machine that
 Publish the draft on GitHub. From then on, every installed Vireo finds it within a day (or at its next start), downloads
 it, checks it against `VireoSetup.exe.sha256`, and installs it when it closes.
 
+Then check it from the outside, as an installed Vireo sees it (no sign-in): the release is found, its installer and checksum
+are found by name, and the installer matches the checksum.
+
+```
+VIREO_LIVE=1 dotnet test tests/Vireo.Tests --filter Published_release_is_one_the_updater_can_install
+```
+
+The names are what keep updates working: the tag is `vX.Y.Z`, and the files are always `VireoSetup.exe` and
+`VireoSetup.exe.sha256` (the release workflow names them so; never rename them by hand).
+
 ## If something is wrong after publishing
 
 Publish a fixed version (1.2.1) as soon as possible. Do not delete a published release that people may already have

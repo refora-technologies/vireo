@@ -34,5 +34,18 @@ internal sealed partial class SelfTest
         await w.EvalAsync(tab, "document.getElementById('link').value = 'not a link'; document.getElementById('paste').requestSubmit()");
         await Task.Delay(800);
         Check("something that is not a link gets a clear answer", (await w.EvalAsync(tab, "document.getElementById('result').textContent")).Contains("does not look like"));
+
+        // The downloads list: the newest at the top, also when the panel is opened later (not only while it is open).
+        foreach (var name in new[] { "older.mp4", "newer.mp4" })
+        {
+            w.Downloads.Add(new Downloads.DownloadRequest(baseUrl + "/clip.mp4", name));
+            await Task.Delay(1100); // a second apart, so "newest" is unambiguous
+        }
+        await WaitFor(() => w.Downloads.Items.Count(i => i.FileName.StartsWith("newer") || i.FileName.StartsWith("older")) == 2 && w.Downloads.Items.All(i => i.State is not (Downloads.DownloadState.Downloading or Downloads.DownloadState.Queued)), 30000);
+        var panel = new Controls.DownloadsPanel(w.Downloads);
+        var shown = panel.Shown;
+        var newestFirst = w.Downloads.Items.Where(i => i.Parent is null).OrderByDescending(i => i.CreatedAt).ToList();
+        Check("the downloads list shows the newest at the top", shown.Count >= 2 && shown.SequenceEqual(newestFirst),
+            string.Join(" | ", shown.Take(3).Select(i => $"{i.FileName} {i.CreatedAt:HH:mm:ss}")));
     }
 }

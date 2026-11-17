@@ -70,7 +70,8 @@ public sealed class DownloadsPanel : Grid
         SetRow(scroll, 3);
         Children.Add(scroll);
 
-        foreach (var item in engine.Items) AddRow(item, animate: false);
+        // The engine lists newest first, and each row goes in at the top: so the oldest goes in first, and the newest ends on top.
+        foreach (var item in engine.Items.Reverse()) AddRow(item, animate: false);
         UpdateSummary();
 
         engine.ItemAdded += OnAdded;
@@ -156,6 +157,9 @@ public sealed class DownloadsPanel : Grid
         foreach (var item in _engine.Items.Where(i => i.State is DownloadState.Completed or DownloadState.Cancelled or DownloadState.Failed).ToList())
             _engine.Remove(item);
     }
+
+    /// <summary>For tests: the downloads in the order the list shows them, top first.</summary>
+    internal IReadOnlyList<DownloadItem> Shown => _list.Children.OfType<DownloadRow>().Select(r => r.Item).ToList();
 
     private void AddRow(DownloadItem item, bool animate)
     {

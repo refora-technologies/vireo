@@ -62,6 +62,9 @@ MinVersion=10.0.17763
 
 ; A running Vireo (any profile) is closed through the Restart Manager, which lets it save its tabs first. Only Vireo itself:
 ; the browser engine's own processes belong to Windows' WebView2 runtime, not to this install.
+; Tell Windows the program's icon may have changed, so Explorer, the Start menu and the taskbar stop showing a cached one.
+ChangesAssociations=yes
+
 CloseApplications=force
 CloseApplicationsFilter=Vireo.exe
 RestartApplications=no
@@ -94,6 +97,8 @@ Name: "{autodesktop}\Vireo"; Filename: "{app}\Vireo.exe"; IconFilename: "{app}\V
 [Run]
 ; Lists Vireo among the browsers Windows offers (the person still chooses the default in Windows Settings).
 Filename: "{app}\Vireo.exe"; Parameters: "--register"; Flags: runhidden waituntilterminated; StatusMsg: "Adding Vireo to Windows' list of browsers..."
+; Windows keeps shortcut and taskbar icons in a cache; this refreshes it so a new icon shows at once.
+Filename: "{sys}\ie4uinit.exe"; Parameters: "-show"; Flags: runhidden waituntilterminated skipifdoesntexist
 Filename: "{app}\Vireo.exe"; Description: "Open Vireo"; Flags: nowait postinstall skipifsilent
 ; An update chosen with "Restart to update": Vireo opens again, with the same tabs.
 Filename: "{app}\Vireo.exe"; Parameters: "{param:REOPENARGS}"; Flags: nowait; Check: ReopenAfterUpdate

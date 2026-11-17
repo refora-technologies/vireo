@@ -1,0 +1,9 @@
+{
+  "name": "vireo-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Draws Vireo's icon and installer images from the master mark.",
+  "devDependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Vireo's mark: the one drawing behind the app icon, the tab-row mark and the start page. -->
+  <defs>
+    <linearGradient id="vireo-tile" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A40"/><stop offset="1" stop-color="#0E1F1C"/></linearGradient>
+    <linearGradient id="vireo-bird" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6FF0D2"/><stop offset="1" stop-color="#2CC7A6"/></linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="url(#vireo-tile)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="14.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.10"/>
+  <g transform="translate(32 32) scale(0.82) translate(-30.25 -30)">
+    <path fill="url(#vireo-bird)" d="M12 36C15 25 25 18 37 19.5C41 14.5 48 12.5 54 14.5C50.5 17.5 49 20.5 49 24C49 37 39 47 25 47C19 47 14 43 12 36Z M13 37L6.5 47.5L19 44Z"/>
+    <path fill="#13302A" d="M22 37C27 29.5 36 27.5 43 29.5C40 38 32 43 22 37Z"/>
+    <circle cx="44" cy="21" r="2.3" fill="#13302A"/>
+  </g>
+</svg>

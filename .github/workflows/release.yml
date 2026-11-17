@@ -57,7 +57,9 @@ jobs:
       # Code signing goes here, once Vireo has a certificate: it must sign Vireo.exe before setup.iss runs and
       # VireoSetup.exe before the checksum and the attestation below are made.
 
+      # Attestations need a public repository on GitHub's free plan; a private build is released without one.
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: ${{ !github.event.repository.private }}
         with:
           subject-path: out/installer/VireoSetup.exe
 

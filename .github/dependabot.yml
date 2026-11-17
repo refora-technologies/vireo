@@ -1,0 +1,14 @@
+# Keeps the packages Vireo is built with, and the workflows' actions, up to date with weekly pull requests.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      webview2-and-data:
+        patterns: ["Microsoft.*", "SQLitePCLRaw.*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

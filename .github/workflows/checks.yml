@@ -1,0 +1,41 @@
+# Builds Vireo and runs its unit tests on every pull request and every change to main.
+#
+# The browser self-test (a real window driving itself) needs a desktop session and runs on a developer's machine before a
+# release; see docs/RELEASING.md.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore: ['website/**', '**.md']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build src/Vireo -c Release --nologo
+
+      - name: Unit tests
+        run: dotnet test tests/Vireo.Tests -c Release --nologo --logger "console;verbosity=normal"
+
+      - name: The version, the installer and the release notes agree
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content src/Vireo/Vireo.csproj)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if (-not (Test-Path "release-notes/$version.md")) { throw "Vireo.csproj says $version, but there are no release notes at release-notes/$version.md." }

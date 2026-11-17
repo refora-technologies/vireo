@@ -1,0 +1,20 @@
+name: Idea
+description: Something Vireo could do, or do better.
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation and what gets in the way, more than the solution you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+  - type: textarea
+    id: others
+    attributes:
+      label: How other browsers do it
+      description: If another browser already does this well, say which and how.

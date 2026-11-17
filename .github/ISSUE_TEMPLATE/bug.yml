@@ -1,0 +1,54 @@
+name: Something is not working
+description: A bug, a crash, a site that breaks, or a video Vireo does not find.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. For a security problem, please follow [SECURITY.md](https://github.com/refora-technologies/vireo/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what Vireo did instead.
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: The page's address
+      description: For a site that breaks or a video that is not found, the address of the page (not the video file). Leave it out if it is private.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Open …
+        2. Press …
+  - type: input
+    id: version
+    attributes:
+      label: Vireo version
+      description: Settings → About.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+  - type: dropdown
+    id: blocking
+    attributes:
+      label: Does it still happen with blocking off for that site?
+      description: Click the shield next to the address bar and turn blocking off for the site, then reload.
+      options:
+        - "I have not tried"
+        - "Yes, it still happens"
+        - "No, it works with blocking off"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots help a lot.

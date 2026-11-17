@@ -1,0 +1,58 @@
+Vireo — third-party notices
+==========================
+
+Vireo is free software by Refora Technologies, under the GNU General Public License, version 3 (see LICENSE).
+It is built with, ships, or downloads the following work by others, each under its own licence.
+
+
+Shipped with Vireo
+------------------
+
+.NET runtime and Windows Desktop (WPF)
+  Microsoft Corporation and contributors. MIT License.
+  https://github.com/dotnet/runtime  ·  https://github.com/dotnet/wpf
+
+Microsoft Edge WebView2 SDK (Microsoft.Web.WebView2)
+  Microsoft Corporation. Licensed under the WebView2 SDK license (BSD-style).
+  https://www.nuget.org/packages/Microsoft.Web.WebView2/
+  The browser engine itself is Microsoft's Evergreen WebView2 Runtime, which Windows provides and updates; Vireo does not
+  ship it. If it is missing, Vireo's installer runs Microsoft's own WebView2 installer.
+
+Microsoft.Data.Sqlite
+  Microsoft Corporation and contributors. MIT License.
+  https://github.com/dotnet/efcore
+
+SQLitePCLRaw (bundle_winsqlite3)
+  Eric Sink and contributors. Apache License 2.0.
+  https://github.com/ericsink/SQLitePCL.raw
+  Uses winsqlite3, the SQLite that is part of Windows (SQLite is in the public domain).
+
+Plus Jakarta Sans (typeface)
+  Copyright 2020 The Plus Jakarta Sans Project Authors. SIL Open Font License 1.1 (src/Vireo/Fonts/OFL.txt).
+  https://github.com/tokotype/PlusJakartaSans
+
+
+Downloaded by Vireo while it runs (not shipped)
+------------------------------------------------
+
+When ad and tracker blocking uses the community lists, Vireo downloads them from their publishers and keeps them up to date.
+
+EasyList and EasyPrivacy
+  The EasyList authors. Dual licensed: GNU General Public License v3 and Creative Commons Attribution-ShareAlike 3.0.
+  https://easylist.to/
+
+Peter Lowe's ad and tracking server list
+  Peter Lowe. Free for personal and non-commercial use; see the publisher's terms.
+  https://pgl.yoyo.org/adservers/
+
+AdGuard DNS filter
+  AdGuard Software Ltd. GNU General Public License v3.
+  https://github.com/AdguardTeam/AdGuardSDNSFilter
+
+
+Used to build Vireo (not shipped)
+---------------------------------
+
+Inno Setup — Jordan Russell and Martijn Laan. Inno Setup License.  https://jrsoftware.org/isinfo.php
+xUnit.net — .NET Foundation and contributors. Apache License 2.0.  https://xunit.net/
+Playwright (playwright-core, drawing the icon and installer images) — Microsoft. Apache License 2.0.  https://playwright.dev/

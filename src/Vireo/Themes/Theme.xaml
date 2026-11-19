@@ -27,7 +27,7 @@
     <Color x:Key="KnobOnColor">#04241D</Color>
 
     <!-- A private window's frame: the same, in violet. -->
-    <DrawingBrush x:Key="PrivateFrameBrush" Stretch="Fill">
+    <DrawingBrush x:Key="PrivateFrameBrush" Stretch="Fill" RenderOptions.CachingHint="Cache" RenderOptions.CacheInvalidationThresholdMinimum="0.5" RenderOptions.CacheInvalidationThresholdMaximum="2">
         <DrawingBrush.Drawing>
             <DrawingGroup>
                 <GeometryDrawing Geometry="M0,0 H100 V100 H0 Z" Brush="#13111A"/>
@@ -44,7 +44,8 @@
     </DrawingBrush>
 
     <!-- The frame: deep green-black with two soft pools of colour, top-left and bottom-right. -->
-    <DrawingBrush x:Key="FrameBrush" Stretch="Fill">
+    <!-- Drawn once and reused: without the caching hint WPF redraws this whole-window gradient on every frame of every animation. -->
+    <DrawingBrush x:Key="FrameBrush" Stretch="Fill" RenderOptions.CachingHint="Cache" RenderOptions.CacheInvalidationThresholdMinimum="0.5" RenderOptions.CacheInvalidationThresholdMaximum="2">
         <DrawingBrush.Drawing>
             <DrawingGroup>
                 <GeometryDrawing Geometry="M0,0 H100 V100 H0 Z" Brush="#0F1716"/>
@@ -86,11 +87,22 @@
     <SolidColorBrush x:Key="Danger" Color="{StaticResource DangerColor}"/>
     <SolidColorBrush x:Key="Hover" Color="{StaticResource HoverColor}"/>
 
-    <!-- Type: Plus Jakarta Sans throughout. Its figures are set tabular (Typography.NumeralAlignment on the windows), so
-         speeds and sizes that change never jiggle; "MonoFont" is the same face, kept as a name for figures. -->
+    <!-- Type: Plus Jakarta Sans throughout. "MonoFont" is the same face, the name used for figures (speeds, sizes, counts,
+         times). Only figures get tabular digits (see the TextBlock style below), so changing numbers never jiggle. It used to be
+         set on the whole window, which made WPF shape every piece of text the slow way and drawing about four times slower. The
+         fallback after the comma only gives MonoFont a name of its own (the first face is always found). -->
     <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
     <FontFamily x:Key="UiFont">pack://application:,,,/Fonts/#Plus Jakarta Sans</FontFamily>
-    <FontFamily x:Key="MonoFont">pack://application:,,,/Fonts/#Plus Jakarta Sans</FontFamily>
+    <FontFamily x:Key="MonoFont">pack://application:,,,/Fonts/#Plus Jakarta Sans, Segoe UI</FontFamily>
+
+    <!-- Figures (text set in MonoFont) get tabular digits; all other text is drawn without the OpenType feature. -->
+    <Style TargetType="TextBlock">
+        <Style.Triggers>
+            <Trigger Property="FontFamily" Value="{StaticResource MonoFont}">
+                <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 
     <!-- Toolbar and panel icon button: a soft square that lights on hover. -->
     <Style x:Key="IconButton" TargetType="Button">

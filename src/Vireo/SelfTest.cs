@@ -189,6 +189,8 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         if (Only?.Contains("adtest") == true) await Step("adtest", RunAdTestStepsAsync);
         if (Only?.Contains("sites") == true) await Step("sites", RunSiteSurveyAsync);
         if (Only?.Contains("freezes") == true) await Step("freezes", RunFreezeStepsAsync);
+        if (Only?.Contains("animations") == true) await Step("animations", RunAnimationStepsAsync);
+        await Step("settingslook", RunSettingsLookStepsAsync);
 
         // 8. Many tabs share the width
         for (var i = 0; i < 9; i++) await w.OpenTabAsync(null, activate: false);

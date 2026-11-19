@@ -62,6 +62,8 @@ public partial class App : Application
             Instance = instance;
             instance.Received += link => Dispatcher.BeginInvoke(() => (Vireo.MainWindow.LastActive ?? MainWindow as MainWindow)?.OpenFromOutside(link));
         }
+        // A steady 30 frames a second on machines that draw without a graphics card (see Motion).
+        Motion.TuneForThisMachine();
         base.OnStartup(e);
         ForgetOldPrivateDownloads();
         DispatcherUnhandledException += OnUiException;

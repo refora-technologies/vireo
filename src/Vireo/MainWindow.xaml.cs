@@ -58,6 +58,20 @@ public partial class MainWindow : Window
         // A click anywhere else closes an extension's popup, as in other browsers.
         PreviewMouseDown += (_, e) => { if (_extensionPopup is { } p && !IsWithin(e.OriginalSource as DependencyObject, p.PlacementTarget)) CloseExtensionPopup(); };
         Deactivated += (_, _) => CloseExtensionPopup();
+        Native.KeepWithWindow(MenuPopup, this);
+        // Vireo's floating parts (menu, suggestions, find bar) are windows Windows keeps on top of everything: they must never
+        // stay over another program. Switching away hides them; coming back brings the find bar back where it was.
+        Deactivated += (_, _) =>
+        {
+            MenuPopup.IsOpen = false;
+            HideSuggestions();
+            if (_findPopup is { IsOpen: true }) { _findPopup.IsOpen = false; _findWaiting = true; }
+        };
+        Activated += (_, _) =>
+        {
+            if (_findWaiting && _findPopup is not null) { _findPopup.IsOpen = true; Native.KeepJustAbove(_findPopup, this); }
+            _findWaiting = false;
+        };
         // The mouse's side buttons over Vireo's own toolbar and tabs (inside the page the engine handles them itself).
         PreviewMouseDown += (_, e) =>
         {
@@ -146,7 +160,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The tab's header in the strip, with everything it can do.</summary>
-    private void AttachHeader(BrowserTab tab)
+    private void AttachHeader(BrowserTab tab, bool grow = true)
     {
         var header = new TabHeader(tab);
         header.Selected += async t => await ActivateAsync(t);
@@ -165,6 +179,13 @@ public partial class MainWindow : Window
         header.DragEnded += (t, screen, outside) => _ = OnTabDragEndedAsync(t, screen, outside);
         TabStrip.SetPresence(header, 0);
         Tabs.Children.Insert(Tabs.Children.Count - 1, header);
+        if (grow) GrowHeader(tab);
+    }
+
+    /// <summary>The tab's header grows into its place in the strip (once).</summary>
+    private void GrowHeader(BrowserTab tab)
+    {
+        if (!_headers.TryGetValue(tab, out var header) || TabStrip.GetPresence(header) > 0) return;
         header.BeginAnimation(TabStrip.PresenceProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
     }
 
@@ -270,10 +291,16 @@ public partial class MainWindow : Window
         var header = _headers[tab];
         _headers.Remove(tab);
         var shrink = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-        shrink.Completed += (_, _) => Tabs.Children.Remove(header);
+        // The page goes out of sight (and silent) at once; its engine is freed after the header has shrunk away, so the work of
+        // freeing it does not land in the middle of the animation.
+        if (tab.View is { } closing)
+        {
+            closing.Visibility = Visibility.Collapsed;
+            try { if (closing.CoreWebView2 is { } c) c.IsMuted = true; } catch { /* not started */ }
+        }
+        shrink.Completed += (_, _) => { Tabs.Children.Remove(header); DisposeView(tab); };
         header.IsHitTestVisible = false;
         header.BeginAnimation(TabStrip.PresenceProperty, shrink);
-        DisposeView(tab);
     }
 
     private async Task ReopenClosedAsync()
@@ -495,13 +522,9 @@ public partial class MainWindow : Window
         if (_env is null) return (0, 0);
         foreach (var info in _env.GetProcessInfos())
         {
-            try
-            {
-                using var p = Process.GetProcessById(info.ProcessId);
-                bytes += p.WorkingSet64;
-                count++;
-            }
-            catch { /* process ended */ }
+            if (Native.WorkingSetOf(info.ProcessId) is not { } used) continue; // the process ended
+            bytes += used;
+            count++;
         }
         return (bytes, count);
     }
@@ -858,6 +881,7 @@ public partial class MainWindow : Window
         MenuCard.Opacity = 0;
         MenuScale.ScaleX = MenuScale.ScaleY = 0.94;
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        Motion.CacheWhileMoving(MenuCard, 220); // its soft shadow is drawn once, not every frame of the opening
         MenuCard.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140)));
         var scale = new DoubleAnimation(1, TimeSpan.FromMilliseconds(220)) { EasingFunction = ease };
         MenuScale.BeginAnimation(ScaleTransform.ScaleXProperty, scale);

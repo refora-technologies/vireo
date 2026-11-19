@@ -162,13 +162,28 @@ public partial class MainWindow
         };
         _updatesStatus = Show;
         Show();
-        var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        right.Children.Add(status);
-        right.Children.Add(button);
-        var notes = new Button { Style = (Style)FindResource("GhostButton"), Content = "Release notes", Margin = new Thickness(6, 0, 0, 0), FontSize = 12 };
-        notes.Click += (_, _) => (s_updater ?? new Updater()).OpenReleasePage();
-        right.Children.Add(notes);
-        return UiKit.Row("Updates", null, right);
+        // Laid out like every other row: the words on the left (the state under the label, wrapping as needed, and a small
+        // "Release notes" link under it), one button on the right. Three things on one line ran off a narrow panel.
+        status.FontSize = 12;
+        status.TextWrapping = TextWrapping.Wrap;
+        status.Margin = new Thickness(0, 2, 0, 0);
+        var notes = new TextBlock { Margin = new Thickness(0, 4, 0, 0), FontSize = 12 };
+        var link = new System.Windows.Documents.Hyperlink(new System.Windows.Documents.Run("Release notes")) { Foreground = UiKit.Brush("Accent"), TextDecorations = null, Cursor = System.Windows.Input.Cursors.Hand };
+        link.Click += (_, _) => (s_updater ?? new Updater()).OpenReleasePage();
+        notes.Inlines.Add(link);
+        var words = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0), MinWidth = 150 };
+        words.Children.Add(new TextBlock { Text = "Updates", FontSize = 13 });
+        words.Children.Add(status);
+        words.Children.Add(notes);
+        var row = new Grid { Margin = new Thickness(14, 11, 12, 11) };
+        row.ColumnDefinitions.Add(new ColumnDefinition());
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(words);
+        button.Margin = new Thickness(0);
+        button.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(button, 1);
+        row.Children.Add(button);
+        return row;
     }
 
     /// <summary>For tests: the menu's update item is showing.</summary>

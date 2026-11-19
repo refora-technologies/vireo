@@ -164,6 +164,7 @@ public partial class MainWindow
         if (!_suggest.IsOpen)
         {
             _suggest.IsOpen = true;
+            Native.KeepJustAbove(_suggest, this);
             var card = (Border)_suggest.Child;
             card.Opacity = 0;
             card.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140)));
@@ -272,6 +273,7 @@ public partial class MainWindow
         UpdateFindPosition();
         _findPopup.VerticalOffset = 6;
         _findPopup.IsOpen = true;
+        Native.KeepJustAbove(_findPopup, this);
         var card = (Border)_findPopup.Child;
         card.Opacity = 0;
         card.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(140)));
@@ -347,8 +349,12 @@ public partial class MainWindow
         _findCount.Foreground = UiKit.Brush(total == 0 && _findBox.Text.Length > 0 ? "Danger" : "Text3");
     }
 
+    /// <summary>The find bar was open when another program came in front: it comes back when Vireo does.</summary>
+    private bool _findWaiting;
+
     internal void CloseFind()
     {
+        _findWaiting = false;
         if (_findPopup is { IsOpen: true }) _findPopup.IsOpen = false;
         Active?.View?.CoreWebView2?.Find.Stop();
         Active?.View?.Focus();

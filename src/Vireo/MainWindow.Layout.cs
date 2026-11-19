@@ -130,11 +130,15 @@ public partial class MainWindow
         var collapsing = !_settings.VerticalCollapsed;
         _settings.VerticalCollapsed = collapsing;
         _settings.Commit();
-        var anim = new DoubleAnimation(collapsing ? 56 : 248, TimeSpan.FromMilliseconds(240)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
-        // Text goes last when closing and comes back first when opening, so it never gets squeezed.
-        if (collapsing) anim.Completed += (_, _) => FinishCompact();
-        else FinishCompact();
-        SideTabs.BeginAnimation(WidthProperty, anim);
+        // The list takes its new width at once (the page beside it resizes once, not on every frame), and its contents fade and
+        // slide into their new shape: a move the graphics card makes from a picture, cheap on any laptop.
+        SideTabs.BeginAnimation(WidthProperty, null);
+        SideTabs.Width = collapsing ? 56 : 248;
+        FinishCompact();
+        var slide = SideTabs.RenderTransform as TranslateTransform ?? new TranslateTransform();
+        SideTabs.RenderTransform = slide;
+        var away = _settings.TabSide == TabSide.Left ? -1 : 1;
+        Motion.Run(SideTabs, slide, fromX: away * (collapsing ? 6 : 14), toX: 0, fromOpacity: 0.35, toOpacity: 1, Motion.Ms(240), new CubicEase { EasingMode = EasingMode.EaseOut });
     }
 
     private void FinishCompact()
@@ -168,16 +172,21 @@ public partial class MainWindow
         if (_toast is { IsOpen: true }) _toast.IsOpen = false; // it would hang over the panel; the panel says the same
         if (_drawerOpen) return;
         _drawerOpen = true;
-        Drawer.BeginAnimation(WidthProperty, new DoubleAnimation(TargetDrawerWidth, TimeSpan.FromMilliseconds(280)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
+        // Its room is made once (the page beside it resizes once), then the card slides a little and fades in.
+        Drawer.Width = TargetDrawerWidth;
+        Motion.Run(DrawerCard, DrawerSlide, fromX: 48, toX: 0, fromOpacity: 0, toOpacity: 1, Motion.Ms(280), new CubicEase { EasingMode = EasingMode.EaseOut });
     }
 
     internal void CloseDrawer()
     {
         if (!_drawerOpen) return;
         _drawerOpen = false;
-        var shut = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } };
-        shut.Completed += (_, _) => { if (!_drawerOpen) DrawerBody.Content = null; };
-        Drawer.BeginAnimation(WidthProperty, shut);
+        Motion.Run(DrawerCard, DrawerSlide, fromX: 0, toX: 48, fromOpacity: 1, toOpacity: 0, Motion.Ms(200), new CubicEase { EasingMode = EasingMode.EaseIn }, done: () =>
+        {
+            if (_drawerOpen) return; // opened again meanwhile
+            Drawer.Width = 0; // the page takes the room back once, at the end
+            DrawerBody.Content = null;
+        });
         Active?.View?.Focus();
     }
 

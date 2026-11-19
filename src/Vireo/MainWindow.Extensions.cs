@@ -94,6 +94,7 @@ public partial class MainWindow
         };
         var popup = new Popup { AllowsTransparency = true, StaysOpen = true, PopupAnimation = PopupAnimation.None, Placement = PlacementMode.Bottom, PlacementTarget = anchor, HorizontalOffset = -300, Child = card };
         _extensionPopup = popup;
+        Native.KeepWithWindow(popup, this);
         popup.IsOpen = true;
         try
         {

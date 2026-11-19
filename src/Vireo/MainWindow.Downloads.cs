@@ -264,7 +264,8 @@ public partial class MainWindow
         _toast.HorizontalOffset = Math.Max(0, Pages.ActualWidth - card.DesiredSize.Width);
         _toast.VerticalOffset = Math.Max(0, Pages.ActualHeight - card.DesiredSize.Height);
         _toast.IsOpen = true;
-        Native.NotOnTop(_toast);
+        Native.KeepJustAbove(_toast, this);
+        Motion.CacheWhileMoving(card, 280); // its shadow is drawn once while it slides in
         card.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)));
         card.RenderTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
 
@@ -274,6 +275,7 @@ public partial class MainWindow
             _toastTimer!.Stop();
             var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220));
             fade.Completed += (_, _) => _toast.IsOpen = false;
+            Motion.CacheWhileMoving(card, 220);
             card.BeginAnimation(OpacityProperty, fade);
         };
         _toastTimer.Start();

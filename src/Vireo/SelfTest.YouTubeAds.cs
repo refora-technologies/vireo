@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Vireo.Services;
 
 namespace Vireo;
 
@@ -67,5 +68,33 @@ internal sealed partial class SelfTest
         await WaitFor(() => MainWindow.HasYouTubeAdsScript(tab), 5000);
         Check("and blocking them again brings it back", MainWindow.HasYouTubeAdsScript(tab));
         await w.CloseTabAsync(tab);
+
+        // Playing on in the background: the page is told it is still visible when its tab is hidden, and "Continue watching?"
+        // is answered. A page elsewhere is told the truth.
+        // Earlier steps make hidden tabs sleep after a second; here a hidden tab must stay awake, as it would in real use.
+        var sleepBefore = w.Suspension;
+        w.Suspension = new SuspensionSettings(TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(30));
+        var play = await w.OpenTabAsync(baseUrl + "/pages/yt-play.html");
+        var plain = await w.OpenTabAsync(baseUrl + "/pages/file.html");
+        await WaitFor(() => !play.IsLoading && !plain.IsLoading && play.Title.Length > 0 && plain.Title.Length > 0);
+        await w.ActivateAsync(plain);
+        await w.ActivateAsync(play);
+        await w.ActivateAsync(plain); // the playback page is now hidden, and was hidden once before
+        await Task.Delay(1800);
+        async Task<JsonElement> ReadIn(Models.BrowserTab t, string script)
+        {
+            var raw = await w.EvalAsync(t, $"JSON.stringify({script})");
+            try { return JsonDocument.Parse(JsonSerializer.Deserialize<string>(raw) ?? "null").RootElement.Clone(); } catch { return default; }
+        }
+        var seen = await ReadIn(play, "{ hidden: document.hidden, state: document.visibilityState, events: window.__seen.hiddenEvents, confirmed: window.__seen.confirmed, dialog: !!document.getElementById('dialog') }");
+        Check("a hidden YouTube tab is still told it is visible, and hears no 'hidden' events",
+            Is(seen, "hidden", false) && seen.TryGetProperty("state", out var st) && st.GetString() == "visible" && seen.GetProperty("events").GetInt32() == 0, seen.ToString());
+        Check("'Continue watching?' is answered by itself", seen.TryGetProperty("confirmed", out var cf) && cf.GetInt32() == 1 && Is(seen, "dialog", false), seen.ToString());
+        await w.ActivateAsync(play);
+        var other = await ReadIn(plain, "{ hidden: document.hidden }");
+        Check("other sites are told the truth when hidden", Is(other, "hidden", true), other.ToString());
+        await w.CloseTabAsync(play);
+        await w.CloseTabAsync(plain);
+        w.Suspension = sleepBefore;
     }
 }

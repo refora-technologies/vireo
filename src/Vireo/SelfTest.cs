@@ -147,6 +147,7 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         Check("a tab playing sound is left alone", music.Life == TabLife.Suspended && music.View is not null);
         Check("the others are freed", hidden.Skip(1).All(t => t.Life == TabLife.Discarded && t.View is null), string.Join(",", hidden.Skip(1).Select(t => t.Life)));
         music.IsPlayingAudio = false;
+        music.AudioStoppedAt = DateTime.MinValue; // a stand-in, not real music: no grace for having just played
         await Task.Delay(2500);
         var freed = w.MeasureMemory();
         Console.WriteLine($"MEMORY  all awake: {Mb(awake.Bytes)} ({awake.Processes} processes)  frozen: {Mb(frozen.Bytes)}  freed: {Mb(freed.Bytes)} ({freed.Processes} processes)");

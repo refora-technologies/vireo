@@ -26,10 +26,15 @@ public partial class MainWindow
 
     internal static bool SelfTesting;
 
+    private static string? s_playOnScript;
+    private static string PlayOnScript => s_playOnScript ??= ReadAsset("playon.js").Replace("/*TEST*/false", SelfTesting ? "true" : "false");
+
     private void AttachMedia(BrowserTab tab, CoreWebView2 core)
     {
         if (SelfTesting) _ = core.AddScriptToExecuteOnDocumentCreatedAsync("window.__vireoSelfTest = true;");
         if (_overlayScript.Length > 0) _ = core.AddScriptToExecuteOnDocumentCreatedAsync(_overlayScript);
+        // Keeps playing in a hidden tab or a minimized window (Assets/playon.js; acts on YouTube only).
+        if (PlayOnScript.Length > 0) _ = core.AddScriptToExecuteOnDocumentCreatedAsync(PlayOnScript);
         MainWindow O() => tab.Owner ?? this;
         core.WebResourceResponseReceived += (_, e) => O().OnMediaResponse(tab, core, e);
         WatchWorkers(tab, core);

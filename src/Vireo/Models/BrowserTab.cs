@@ -150,14 +150,23 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public string Url { get => _url; set => Set(ref _url, value); }
     public ImageSource? Favicon { get => _favicon; set => Set(ref _favicon, value); }
     public bool IsLoading { get => _isLoading; set => Set(ref _isLoading, value); }
-    public bool IsPlayingAudio { get => _isPlayingAudio; set => Set(ref _isPlayingAudio, value); }
+    public bool IsPlayingAudio
+    {
+        get => _isPlayingAudio;
+        set { if (_isPlayingAudio && !value) AudioStoppedAt = DateTime.UtcNow; Set(ref _isPlayingAudio, value); }
+    }
+
+    /// <summary>When the tab last went quiet. A playlist goes quiet for a few seconds between songs: not a reason to sleep.</summary>
+    public DateTime AudioStoppedAt { get; set; } = DateTime.MinValue;
+    public static readonly TimeSpan QuietGrace = TimeSpan.FromMinutes(2);
+    private bool PlayedLately => IsPlayingAudio || DateTime.UtcNow - AudioStoppedAt < QuietGrace;
     public TabLife Life { get => _life; set => Set(ref _life, value); }
     public bool CanGoBack { get => _canGoBack; set => Set(ref _canGoBack, value); }
     public bool CanGoForward { get => _canGoForward; set => Set(ref _canGoForward, value); }
 
     public string DisplayTitle => !string.IsNullOrWhiteSpace(Title) ? Title : IsStartPage || string.IsNullOrEmpty(Url) ? "New tab" : Url;
 
-    public TabFacts Facts => new(IsPlayingAudio, IsLoading, HasAddress: !IsStartPage && !string.IsNullOrEmpty(Url) && Url != "about:blank", IsPinned);
+    public TabFacts Facts => new(PlayedLately, IsLoading, HasAddress: !IsStartPage && !string.IsNullOrEmpty(Url) && Url != "about:blank", IsPinned);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

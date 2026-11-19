@@ -232,6 +232,24 @@ public sealed class SignedRulesTests : IDisposable
         Assert.Equal(1, store.Current.Version);
     }
 
+    // ---- the real key and the published file ----
+
+    [Fact]
+    public void The_key_built_into_Vireo_accepts_the_published_rules_file_and_it_matches_the_built_in_copy()
+    {
+        var key = YouTubeRulesStore.BuiltInKey();
+        Assert.NotNull(key); // src/Vireo/rules-key.pub is built into Vireo
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "website", "rules"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        var file = Path.Combine(dir!.FullName, "website", "rules", "v1", "youtube.json");
+        var bytes = File.ReadAllBytes(file);
+        var rules = YouTubeRules.Checked(bytes, File.ReadAllText(file + ".minisig"), key!);
+        Assert.NotNull(rules);
+        // The published file is never older than the one inside Vireo.
+        Assert.True(rules!.Version >= YouTubeRules.Parse(BuiltIn)!.Version);
+    }
+
     // ---- the signing tool's secret key ----
 
     [Fact]

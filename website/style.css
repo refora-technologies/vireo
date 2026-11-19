@@ -59,17 +59,20 @@ img { display: block; max-width: 100%; }
 
 /* ---- Hero ---- */
 .hero { margin-top: 16px; }
-.hero .in { display: grid; grid-template-columns: 1.02fr 1fr; gap: 40px; align-items: center; padding: 76px 48px 76px 60px; overflow: hidden; position: relative; }
-h1 { margin: 24px 0 0; font-size: clamp(40px, 4.5vw, 62px); line-height: 1.01; letter-spacing: -.04em; font-weight: 600; }
+.hero .in { display: grid; grid-template-columns: 1.02fr 1fr; gap: 48px; align-items: center; padding: 72px 56px; overflow: hidden; position: relative; }
+h1 { margin: 0; font-size: clamp(40px, 4.5vw, 62px); line-height: 1.01; letter-spacing: -.04em; font-weight: 600; }
 .lead { margin: 24px 0 32px; max-width: 540px; color: var(--text2); font-size: 18px; line-height: 1.6; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; }
 .fine { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text3); }
 .fine span { display: inline-flex; align-items: center; gap: 7px; }
 .fine span::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--dim); }
+.fine .os { color: var(--text2); font-weight: 600; }
+.fine .os::before { display: none; }
+.fine .os svg { width: 14px; height: 14px; fill: var(--accent); flex: none; }
 .stage { position: relative; min-height: 500px; }
-.stage .glow { position: absolute; inset: 34px -8px 6px 70px; border-radius: 26px; background: linear-gradient(140deg, #6FF0D2, #23B894); transform: rotate(4deg); opacity: .92; }
-.stage .window { position: absolute; left: -10px; right: 18px; top: 22px; transform: rotate(-2deg); color: var(--t); font-size: 13px; }
-.stage .notice { position: absolute; right: -6px; bottom: 4px; width: 320px; z-index: 2; box-shadow: 0 26px 50px -14px rgba(0, 0, 0, .75); animation: rise .8s .6s var(--ease) both; }
+.stage .glow { position: absolute; inset: 34px 14px 6px 60px; border-radius: 26px; background: linear-gradient(140deg, #6FF0D2, #23B894); transform: rotate(4deg); opacity: .92; }
+.stage .window { position: absolute; left: 0; right: 30px; top: 22px; transform: rotate(-2deg); color: var(--t); font-size: 13px; }
+.stage .notice { position: absolute; right: 8px; bottom: 4px; width: 320px; z-index: 2; box-shadow: 0 26px 50px -14px rgba(0, 0, 0, .75); animation: rise .8s .6s var(--ease) both; }
 
 /* ---- Facts under the hero ---- */
 .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
@@ -153,7 +156,7 @@ footer { margin-top: 110px; border-top: 1px solid var(--edge); background: linea
 .addr { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
 .addr .field { flex: 1; height: 30px; border-radius: 9px; background: #18211F; border: 1px solid rgba(61, 219, 185, .25); display: flex; align-items: center; padding: 0 11px; font-size: 11.5px; color: var(--t2); gap: 8px; }
 .addr .field em { font-style: normal; color: var(--t3); }
-.addr .save { height: 30px; padding: 0 11px; border-radius: 9px; background: rgba(61, 219, 185, .12); color: var(--a); font-size: 11.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.addr .save { white-space: nowrap; flex: none; height: 30px; padding: 0 11px; border-radius: 9px; background: rgba(61, 219, 185, .12); color: var(--a); font-size: 11.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
 .addr .save small { background: var(--a); color: var(--ink); font-size: 9.5px; padding: 1px 5px; border-radius: 4px; }
 .addr .shield { height: 30px; padding: 0 9px; border-radius: 9px; display: flex; align-items: center; gap: 5px; color: var(--a); font-size: 11.5px; font-weight: 700; }
 .addr svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }

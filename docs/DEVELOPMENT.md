@@ -43,6 +43,10 @@ src\Vireo\bin\Release\net10.0-windows\Vireo.exe --selftest out\shots http://127.
 
 `VIREO_STEPS=windows,privacy` runs only some of the steps.
 
+README pictures (only on request): `VIREO_STEPS=showcase` draws Vireo's own screens with clean demo content (made-up file
+names downloading from the test server, a few start-page sites, no web pages) into `showcase-*.png` in the out folder;
+copy the ones that changed into `docs/screenshots`.
+
 The `welcome` and `manager` steps cover the welcome page and the download-manager features. "Start with Windows" is written
 to a key of the test's own (`HKCU\Software\VireoSelfTest\Run`, removed at the end), never to Windows' Run key; the
 notification area's messages are recorded, not shown; "when done" only records what it would have done; and the

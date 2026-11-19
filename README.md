@@ -29,12 +29,29 @@ Chrome and Edge. Everything around the page, from the tabs to the download manag
 
 ## Screenshots
 
-<div align="center">
-  <img src="docs/screenshots/start-page.png" alt="The start page" width="420" />
-  <img src="docs/screenshots/save-video.png" alt="Saving a video from the page's own player" width="420" />
-  <img src="docs/screenshots/privacy.png" alt="The privacy panel: what was blocked on this site" width="420" />
-  <img src="docs/screenshots/tabs.png" alt="Every open tab, searchable, with what each is using" width="420" />
-</div>
+<p align="center">
+  <img src="docs/screenshots/start-page.png" alt="Vireo's start page: your sites, live download speed, and what is downloading" width="860" />
+  <br><sub>The start page: your own sites, the live download speed and what is coming down.</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/downloads.png" alt="The Downloads panel beside the start page" /></td>
+    <td width="50%"><img src="docs/screenshots/welcome.png" alt="The welcome page on the first start" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>Downloads</b>: several connections per file, a minute of speed history, pause and resume, schedule.</sub></td>
+    <td><sub><b>Welcome</b>: bring your bookmarks, make Vireo the default browser, use it for downloads.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/download-manager.png" alt="Settings: the download manager section" /></td>
+    <td align="center"><img src="docs/screenshots/downloader.png" alt="The downloader's own small window by the clock" width="300" /></td>
+  </tr>
+  <tr>
+    <td><sub><b>Download manager</b>: stays by the clock, starts with Windows, offers links you copy, sorts files.</sub></td>
+    <td><sub><b>The downloader alone</b>: keeps going when the browser is closed, using very little memory.</sub></td>
+  </tr>
+</table>
 
 ## Key features
 

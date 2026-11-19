@@ -75,7 +75,9 @@ public partial class MainWindow
     private void SendWelcome(CoreWebView2 core)
     {
         List<string> browsers;
-        try { browsers = OtherBrowsers.Detect().Select(b => b.Kind.ToString()).Distinct().ToList(); }
+        // Tests (and the README pictures they take) never show which browsers the computer running them has.
+        if (SelfTesting) browsers = ["Chrome", "Edge", "Firefox"];
+        else try { browsers = OtherBrowsers.Detect().Select(b => b.Kind.ToString()).Distinct().ToList(); }
         catch { browsers = []; } // a profile folder that cannot be read: just not named
         var dm = _settings.DownloadManager ? true : _welcomeDm;
         var json = JsonSerializer.Serialize(new { t = "welcome", isNew = _settings.IsNew, browsers, isDefault = DefaultBrowser.IsDefault(), dm, sort = _settings.SortByType });

@@ -21,6 +21,11 @@ step of `pages.yml`, uploading its output folder instead of `website`.
 - **The look** is the browser's: the colours in `style.css` (`--bg`, `--accent` …) are Vireo's own, the font is Plus
   Jakarta Sans (licence in `assets/OFL.txt`), and the logo is `assets/vireo-mark.svg`, copied from
   `src/Vireo/Assets/vireo-mark.svg` (the one master mark: change it there, then copy it here).
+- **Pictures of Vireo are drawn, not screenshotted:** the window, the downloads list, the notices and menus on the page
+  are HTML and CSS (`.app` and `.window` in `style.css`), with made-up file names and `example.com` sites. They stay sharp
+  at any size, weigh almost nothing, and can never show something from a real computer (a screenshot can catch the
+  desktop, a clipboard, a history). Describe only what Vireo really does.
+- **The social preview** (`assets/social.png`, 1200×630) is what link previews show; redraw it if the headline changes.
 - **Privacy:** no analytics, trackers or third-party fonts and scripts. Vireo blocks them, and its own site should not need
   them.
 - **Wording:** describe saving videos as watching offline what you have the right to; never show or name paid streaming

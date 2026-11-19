@@ -65,10 +65,13 @@ for (const [w, h] of wizard) {
   await page.evaluate(() => document.fonts.ready);
   await writeFile(new URL(`installer/images/wizard-${w}x${h}.png`, root), await page.screenshot());
 }
+// The corner mark sits in the wizard's header next to two lines of text: drawn smaller than its box, in the middle, so it
+// lines up with the text and keeps clear of the header's edges (an edge-to-edge badge looked too big and too high).
 for (const s of [58, 77, 97, 124, 159]) {
+  const inner = Math.round(s * 0.7);
   await page.setViewportSize({ width: s, height: s });
-  await page.setContent(`<html><body style="margin:0;background:transparent">${sized(s)}</body></html>`);
-  await writeFile(new URL(`installer/images/small-${s}.png`, root), await page.locator('svg').screenshot({ omitBackground: true }));
+  await page.setContent(`<html><body style="margin:0;background:transparent;width:${s}px;height:${s}px;display:grid;place-items:center">${sized(inner)}</body></html>`);
+  await writeFile(new URL(`installer/images/small-${s}.png`, root), await page.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width: s, height: s } }));
 }
 await browser.close();
 console.log('Drew vireo.ico, vireo-256.png and the installer images.');

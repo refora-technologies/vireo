@@ -58,7 +58,17 @@ internal sealed partial class SelfTest
 
         var index = rows.FindIndex(r => r.StartsWith("144p"));
         var before = w.Downloads.Items.Count;
+        // The menu closes when the (pretend) mouse goes quiet, as it would if a person moved away: if it closed while the
+        // screenshot was taken, open it again before choosing.
         var picked = await w.EvalAsync(tab, $"window.__vireoTest.pick({index})");
+        for (var again = 0; again < 4 && picked != "true"; again++)
+        {
+            await w.EvalAsync(tab, "window.__vireoTest.hover()");
+            await Task.Delay(200);
+            await w.EvalAsync(tab, "window.__vireoTest.press()");
+            for (var i = 0; i < 20 && (await OverlayState(tab)).GetProperty("rows").GetArrayLength() == 0; i++) await Task.Delay(150);
+            picked = await w.EvalAsync(tab, $"window.__vireoTest.pick({index})");
+        }
         await Task.Delay(8000);
         Console.WriteLine($"INFO  after picking row {index} ({picked}): " + string.Join(" || ", w.Downloads.Items.Select(i => $"{i.FileName} {i.State} {i.Error} pair={i.Pair is not null} stream={i.Stream is not null} {i.Downloaded}/{i.Total} {i.Url[..Math.Min(70, i.Url.Length)]}")));
         var d = await Finish(i => i.Pair is not null, 240000);

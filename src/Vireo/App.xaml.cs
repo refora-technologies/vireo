@@ -60,7 +60,12 @@ public partial class App : Application
         else
         {
             Instance = instance;
-            instance.Received += link => Dispatcher.BeginInvoke(() => (Vireo.MainWindow.LastActive ?? MainWindow as MainWindow)?.OpenFromOutside(link));
+            instance.Received += link => Dispatcher.BeginInvoke(() =>
+            {
+                // Only the downloader is running (the browser was closed with downloads going): the browser comes back.
+                if (Vireo.MainWindow.InBackground) Vireo.MainWindow.OpenBrowserFromBackground(link);
+                else (Vireo.MainWindow.LastActive ?? MainWindow as MainWindow)?.OpenFromOutside(link);
+            });
         }
         // A steady 30 frames a second on machines that draw without a graphics card (see Motion).
         Motion.TuneForThisMachine();
@@ -69,6 +74,14 @@ public partial class App : Application
         DispatcherUnhandledException += OnUiException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Log("Unhandled (fatal)", args.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, args) => { Log("Background task", args.Exception); args.SetObserved(); };
+    }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        // Windows is shutting down or signing out: no question, no background; downloads are kept for next time.
+        Vireo.MainWindow.EndingSession = true;
+        if (Vireo.MainWindow.InBackground) Vireo.MainWindow.QuitFromBackground();
+        base.OnSessionEnding(e);
     }
 
     protected override void OnExit(ExitEventArgs e)

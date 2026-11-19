@@ -210,6 +210,10 @@ public partial class MainWindow
                 "Vireo (Private)", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
             if (answer != MessageBoxResult.Yes) { e.Cancel = true; return; }
         }
+        // The last window with downloads still running: keep them going in the background, stop them, or stay open.
+        // (Self-tests are asked only when a test answers the question.)
+        var mayAsk = !SelfTesting || AnswerCloseQuestion is not null;
+        if (!e.Cancel && !_private && mayAsk && !DecideClosingWithDownloads()) { e.Cancel = true; return; }
         if (!e.Cancel && !_private)
         {
             if (_settings.ClearDataOnExit) SessionStore.Delete(SessionPath);

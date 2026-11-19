@@ -147,6 +147,8 @@ public partial class MainWindow
             UiKit.Row("Connections per download", "More connections finish big files sooner. Some servers allow only a few.", UiKit.Stepper(s.DownloadConnections, 1, 16, 1, v => v.ToString(), v => { s.DownloadConnections = v; Save(); })),
             UiKit.Row("Downloads at once", null, UiKit.Stepper(s.MaxActiveDownloads, 1, 8, 1, v => v.ToString(), v => { s.MaxActiveDownloads = v; Save(); })),
             UiKit.Row("Speed limit", "Shared by all downloads, so the rest of your connection stays free.", UiKit.Stepper(s.SpeedLimitKBps, 0, 102400, 256, Speed, v => { s.SpeedLimitKBps = v; Save(); })),
+            UiKit.Block("Closing Vireo while downloads run", "Keep downloading: the browser closes and only the downloader stays, in the notification area, until they are done.",
+                UiKit.Segmented<string>([("Ask", "ask"), ("Keep downloading", "background"), ("Stop them", "stop")], s.CloseWithDownloads, v => { s.CloseWithDownloads = v; Save(); })),
             UiKit.Block("Save to", null, where),
             UiKit.Block("Private window downloads", "Asked once, at the first download in a private window. Vireo keeps no record of what was saved.", privateWhere));
 

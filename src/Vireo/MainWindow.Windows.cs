@@ -47,9 +47,12 @@ public partial class MainWindow
                 if (wasFirst) s_windows[0].StartSession();
                 return;
             }
-            // The last window: the shared things go away with it.
+            // The last window: the shared things go away with it (and are made afresh if a window opens again in this process).
             s_library?.Dispose();
+            s_library = null;
+            if (s_keepDownloading && s_downloads is { } engine) { EnterBackground(engine); return; } // the downloads go on
             s_downloads?.Dispose();
+            s_downloads = null;
         };
     }
 

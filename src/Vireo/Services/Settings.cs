@@ -45,6 +45,8 @@ public sealed class Settings
     /// <summary>Where a private window's downloads go: "" until asked (at the first private download), "same" for
     /// <see cref="DownloadFolder"/>, or a folder of its own. Only the place is kept, never what was saved there.</summary>
     public string PrivateDownloadFolder { get; set; } = "";
+    /// <summary>Closing Vireo while downloads run: "ask", "background" (keep downloading, browser closed) or "stop".</summary>
+    public string CloseWithDownloads { get; set; } = "ask";
     /// <summary>Download new versions in the background and install them when Vireo closes.</summary>
     public bool AutoUpdate { get; set; } = true;
 

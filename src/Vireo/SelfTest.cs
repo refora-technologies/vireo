@@ -204,7 +204,10 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         w.WindowState = WindowState.Normal;
         Check("window maximizes and restores", w.WindowState == WindowState.Normal);
 
-        // 10. Last: it kills the browser engine, which every other test would notice
+        // 10. It kills the browser engine, which every other test would notice
         await RunRecoveryStepsAsync();
+
+        // 11. Last of all: it closes the test's window (the browser goes, only the downloader stays, then the browser comes back).
+        await Step("background", RunBackgroundStepsAsync);
     }
 }

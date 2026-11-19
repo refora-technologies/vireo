@@ -28,6 +28,13 @@ opened again from where it stopped; a connection that keeps failing hands its pa
 download; a host that answers "too many requests" gets fewer connections; tries that bring new bytes never count against
 the download; and while the computer is offline it waits (up to 30 minutes) for the internet to come back.
 
+**Downloads that outlive the browser.** Closing Vireo while downloads run asks what to do: keep downloading in the
+background, or stop them (they carry on from where they stopped next time). In the background the browser and its page
+engine close completely and only the downloader stays, with an icon in the notification area: about 40 MB of memory.
+Its tooltip shows the progress; a click opens a small window with every download (pause, resume, cancel, paste a new link)
+and "Open Vireo", which brings the browser back in the same process without interrupting anything. When everything is done
+it shows a notice and exits a minute later. Settings, Downloads, sets the answer for every time.
+
 **Saves video and audio from pages, natively.** Vireo watches what a page plays (`src/Vireo/Media`) and
 puts a **Download** button right on each video or audio player, with a menu of qualities. The toolbar
 button counts what a page offers and opens a Media panel with the same choices. It understands plain

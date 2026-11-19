@@ -98,12 +98,16 @@ public partial class MainWindow : Window
         // Every normal window works on the same settings; a private window has its own copy that is never saved.
         _settings = _private ? Settings.Load(data) : (s_settings ??= Settings.Load(data));
         if (_private) { _settings.Detach(); Title = "Vireo (Private)"; PrivatePill.Visibility = Visibility.Visible; }
+        // The welcome (a first start, or once after an update) opens with the window maximized, so it is seen whole.
+        else if (s_windows.Count <= 1 && _settings.WelcomeSeen < WelcomeVersion && !SelfTest.TryParse(Environment.GetCommandLineArgs(), out _, out _))
+            WindowState = WindowState.Maximized;
         else SiteIcons.Use(data);
         ApplyTabSide(_settings.TabSide, animate: false);
         StartLibrary(data);
         StartDownloads();
         if (!_private) ApplyDownloadManagerChoices(); // the downloader's icon, for someone who uses Vireo as their download manager
         StartBlocking();
+        StartYouTubeRules();
         StartMedia();
         _lowEnd = SuspensionPolicy.ForMemory(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes) == SuspensionSettings.LowEnd;
         // Every window of a profile shares one engine (it allows one set of options per folder); private windows simply do not offer extensions.
@@ -318,7 +322,7 @@ public partial class MainWindow : Window
     {
         if (tab.View is not { } view) return;
         tab.View = null;
-        tab.YouTubeAdsWanted = null; // a new engine for this tab starts without the script
+        tab.YouTubeAdsText = null; // a new engine for this tab starts without the script
         tab.YouTubeAdsScript = null;
         Pages.Children.Remove(view);
         view.Dispose();

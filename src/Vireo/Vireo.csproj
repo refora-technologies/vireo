@@ -27,12 +27,16 @@
     <!-- Reads other browsers' bookmark and history files. winsqlite3 is the SQLite that comes with Windows, so nothing extra is shipped. -->
     <PackageReference Include="Microsoft.Data.Sqlite.Core" Version="9.0.*" />
     <PackageReference Include="SQLitePCLRaw.bundle_winsqlite3" Version="2.1.*" />
+    <!-- Checks the signature on Vireo's rules files (Ed25519, BLAKE2b). Managed code only, MIT licence. -->
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.*" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
     <!-- Plus Jakarta Sans (SIL Open Font License, Fonts\OFL.txt), built into the program. -->
     <Resource Include="Fonts\*.ttf" />
+    <!-- Refora's rules key (the public half), made with tools/vireo-sign. Until it exists, Vireo uses its built-in rules only. -->
+    <EmbeddedResource Include="rules-key.pub" LogicalName="rules-key.pub" Condition="Exists('rules-key.pub')" />
   </ItemGroup>
 
   <ItemGroup>

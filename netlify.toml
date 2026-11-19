@@ -1,0 +1,47 @@
+# Vireo's website on Netlify, at https://vireo.reforatech.com (set as the site's primary domain in Netlify, so the
+# *.netlify.app address redirects there). Plain files: what is in website/ is what is published, with no build step.
+# Netlify publishes main when it changes; pull requests get a preview address of their own.
+
+[build]
+  publish = "website"
+  command = ""
+
+# Every page: a strict security policy. Only the site's own files load (no third-party scripts, fonts or trackers); the
+# page cannot be framed by other sites, and forms cannot post anywhere. Inline style attributes are allowed: the drawn
+# pictures of Vireo use them for widths and progress. Inline scripts are not (site.js is the only script).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+
+# Fonts, the mark and the pictures change rarely; a week, then checked again.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# The rules files Vireo downloads (rules/v1/youtube.json and its .minisig signature). Short caching, so a fix reaches
+# every Vireo within minutes, and readable from any page (they are public data, checked by Vireo's signature, not by
+# where they came from). The signature is plain text.
+[[headers]]
+  for = "/rules/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+    Access-Control-Allow-Origin = "*"
+    X-Robots-Tag = "noindex"
+
+[[headers]]
+  for = "/rules/*.minisig"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
+
+[[headers]]
+  for = "/rules/*.json"
+  [headers.values]
+    Content-Type = "application/json; charset=utf-8"

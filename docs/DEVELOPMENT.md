@@ -105,6 +105,6 @@ src/Vireo/
 tests/Vireo.Tests/   unit tests
 tests/server/        the local test server and its sample pages and media
 installer/           setup.iss and the installer's pictures
-website/             the website (published to GitHub Pages)
+website/             the website (published by Netlify, see netlify.toml)
 scripts/             drawing the icon and installer images
 ```

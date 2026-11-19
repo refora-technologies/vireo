@@ -53,7 +53,7 @@ feature), the local test server and the installer.
 
 ## The website
 
-The website lives in [`website/`](website/) and is published to GitHub Pages when a change to it is merged into `main`.
+The website lives in [`website/`](website/) and is published by Netlify at https://vireo.reforatech.com when a change to it is merged into `main` (see `website/README.md`).
 Its pull requests follow the same rules.
 
 ## Code of conduct

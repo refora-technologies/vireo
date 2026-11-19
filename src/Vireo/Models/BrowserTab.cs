@@ -97,6 +97,10 @@ public sealed class BrowserTab : INotifyPropertyChanged
     }
 
     // What blocking stopped on the current page.
+    /// <summary>Whether this tab's page engine has the YouTube ads script (null: not known yet), and its id to remove it.</summary>
+    internal bool? YouTubeAdsWanted;
+    internal string? YouTubeAdsScript;
+
     public int Blocked { get; private set; }
     public int BlockedAds { get; private set; }
     public int BlockedTrackers { get; private set; }

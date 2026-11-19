@@ -121,6 +121,15 @@ script checks: those names are the bait sites use to detect blockers, and refusi
 ad blocker" walls. Video files and stream playlists are never refused, so players are not broken. Per-site and global
 switches; switch the community lists off for a much smaller footprint.
 
+**YouTube's own ads.** YouTube serves its ads from its own servers, so blocking addresses cannot stop them. Vireo does what
+Brave and uBlock Origin do (`src/Vireo/Assets/youtube.js`): the player's data loses its ad instructions before the player
+reads them (the data written into the page, and every answer fetched later), so there is nothing to play; ad boxes in the
+feed, banners and beside the video are hidden; and the "ad blockers are not allowed" box is removed. If an ad gets through
+anyway (YouTube changes often), it is skipped when it can be, or played muted at 16x speed, never by jumping to its end
+(an ad stitched into the video would take the real video with it). Ads removed count on the shield. Allowing ads on YouTube
+(the shield's switch for the site) takes the script away from the next page on. Embedded YouTube players on other sites
+are covered too.
+
 **Privacy.** Tracking tags (utm_, fbclid, gclid...) are removed from links. Optional HTTPS-only with a
 clear "this site isn't available securely" page. Tracking prevention level (Off / Basic / Balanced /
 Strict). Optional guard against network-address leaks through video-call technology. Optional "forget

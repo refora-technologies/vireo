@@ -39,7 +39,8 @@ Chrome and Edge. Everything around the page, from the tabs to the download manag
 ## Key features
 
 - **Clean pages:** ads and trackers are blocked before they load, with EasyList, EasyPrivacy, Peter Lowe's and AdGuard's
-  lists. Pop-up windows and surprise new tabs are stopped. Turn blocking off for one site in two clicks if it misbehaves.
+  lists, and YouTube's own ads too. Pop-up windows and surprise new tabs are stopped. Turn blocking off for one site in two
+  clicks if it misbehaves.
 - **Save what you watch:** a Download button sits on every video and audio player, listing its qualities. Vireo
   understands plain files, HLS and DASH streams, live streams (recorded until you stop) and videos whose picture and
   sound come separately, which it joins into one MP4 itself, with no outside tools. Protected (DRM) content is recognised

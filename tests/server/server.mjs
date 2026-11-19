@@ -22,6 +22,7 @@ const TYPES = {
   '.jpg': 'image/jpeg',
   '.png': 'image/png',
   '.bin': 'application/octet-stream',
+  '.json': 'application/json',
 };
 
 // A moving live stream made from live-src: a 4-piece window that advances every 2 s.

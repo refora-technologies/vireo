@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>YouTube-like ads - Media Lab test</title></head>
+<body style="background:#0f0f0f;color:#fff;font-family:sans-serif">
+<h1>YouTube-like ads test</h1>
+<p>Imitates the parts of YouTube's page that carry ads. Vireo's YouTube script treats this page as YouTube only in self-test mode.</p>
+<!-- 1. The player data written into the page -->
+<script>
+  var ytInitialPlayerResponse = { streamingData: { formats: [1] }, adPlacements: [{ x: 1 }], playerAds: [{ x: 1 }],
+    auxiliaryUi: { messageRenderers: { enforcementMessageViewModel: { text: 'Ad blockers are not allowed' } } } };
+  window.__r = {};
+  window.__r.inline = { ads: 'adPlacements' in ytInitialPlayerResponse || 'playerAds' in ytInitialPlayerResponse,
+    enforcement: !!ytInitialPlayerResponse.auxiliaryUi.messageRenderers.enforcementMessageViewModel, stream: !!ytInitialPlayerResponse.streamingData };
+  // 2. Answers fetched later, read with JSON.parse and Response.json
+  const later = JSON.parse('{"playerResponse":{"adPlacements":[1],"videoDetails":{"videoId":"x"}},"adSlots":[1]}');
+  window.__r.parsed = { ads: 'adPlacements' in later.playerResponse || 'adSlots' in later, video: !!later.playerResponse.videoDetails };
+  const other = JSON.parse('{"items":[1,2,3],"adPlacementsNote":"kept"}');
+  window.__r.other = other.items.length === 3 && other.adPlacementsNote === 'kept';
+  fetch('/pages/yt-player.json').then(r => r.json()).then(d => {
+    window.__r.fetched = { ads: 'adPlacements' in d || 'playerAds' in d || 'adSlots' in d, stream: !!d.streamingData, video: d.videoDetails.videoId };
+  });
+</script>
+<!-- 3. Ad boxes in the page -->
+<ytd-ad-slot-renderer id="slot">An ad in the feed</ytd-ad-slot-renderer>
+<div id="masthead-ad">A banner ad</div>
+<div id="content">The real content</div>
+<!-- 4. An ad playing in the player, with its Skip button -->
+<div class="html5-video-player ad-showing" id="player">
+  <video id="video" src="/clip.mp4" playsinline loop></video>
+  <button class="ytp-skip-ad-button" onclick="window.__skipped = (window.__skipped || 0) + 1">Skip</button>
+</div>
+<!-- 5. The "ad blockers are not allowed" box -->
+<tp-yt-paper-dialog id="dialog"><ytd-enforcement-message-view-model>Ad blockers are not allowed</ytd-enforcement-message-view-model></tp-yt-paper-dialog>
+<tp-yt-iron-overlay-backdrop id="backdrop"></tp-yt-iron-overlay-backdrop>
+</body></html>

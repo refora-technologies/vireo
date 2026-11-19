@@ -194,6 +194,7 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         if (Only?.Contains("sites") == true) await Step("sites", RunSiteSurveyAsync);
         if (Only?.Contains("freezes") == true) await Step("freezes", RunFreezeStepsAsync);
         if (Only?.Contains("animations") == true) await Step("animations", RunAnimationStepsAsync);
+        await Step("youtubeads", RunYouTubeAdStepsAsync);
         await Step("welcome", RunWelcomeStepsAsync);
         await Step("manager", RunDownloadManagerStepsAsync);
         await Step("settingslook", RunSettingsLookStepsAsync);

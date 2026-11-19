@@ -41,6 +41,10 @@ internal sealed partial class SelfTest
             state = await OverlayState(tab);
         }
         Check("a Download button appears on YouTube's player", state.GetProperty("buttons").GetInt32() >= 1, state.ToString());
+        // What the YouTube ads script did on the real page (YouTube decides whether to send ads, so this is reported, not checked).
+        var ads = await w.EvalAsync(tab, "JSON.stringify({ stats: window.__vireoYtStats || null, adShowing: !!document.querySelector('.html5-video-player.ad-showing') })");
+        Console.WriteLine($"YOUTUBE ADS  {ads}");
+        Check("YouTube's page works with its ads removed (no ad playing)", !ads.Contains("\\\"adShowing\\\":true"), ads);
         // The test does not need the video to keep playing: paused, YouTube's autoplay cannot move the tab to the next video.
         await w.EvalAsync(tab, "document.querySelector('video') && document.querySelector('video').pause()");
         // A hover button hides again when the (pretend) mouse goes quiet: hover and press until the menu is open.

@@ -318,6 +318,8 @@ public partial class MainWindow : Window
     {
         if (tab.View is not { } view) return;
         tab.View = null;
+        tab.YouTubeAdsWanted = null; // a new engine for this tab starts without the script
+        tab.YouTubeAdsScript = null;
         Pages.Children.Remove(view);
         view.Dispose();
     }
@@ -376,6 +378,7 @@ public partial class MainWindow : Window
         // Every event of the page goes to the window the tab is in *now*: a tab can be dragged to another window.
         MainWindow O() => tab.Owner ?? this;
         AttachBlocking(tab, core);
+        await UpdateYouTubeAdsAsync(tab, core); // before the first page loads, so YouTube's first page is covered too
         AttachMedia(tab, core);
         core.NavigationStarting += (_, e) => O().OnPrivacyNavigation(tab, core, e);
         core.NavigationCompleted += (_, e) => O().OnPrivacyNavigated(tab, core, e);

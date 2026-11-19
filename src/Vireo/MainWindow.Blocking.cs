@@ -157,6 +157,7 @@ public partial class MainWindow
     private static bool _lastCommunity;
     private void OnBlockingSettingsChanged()
     {
+        UpdateYouTubeAdsEverywhere();
         if (_settings.UseCommunityLists == _lastCommunity && _lists is not null) { UpdateShield(); return; }
         _lastCommunity = _settings.UseCommunityLists;
         Task.Run(async () =>
@@ -364,6 +365,7 @@ public partial class MainWindow
                 return;
             }
             if (HandleHomeMessage(tab, core, root, type)) return;
+            if (OnYouTubeAdMessage(tab, core, type, root)) return;
             if (type == "search" && Uri.TryCreate(core.Source, UriKind.Absolute, out var from) && from.Host == StartHost)
             {
                 NavigateActive(root.GetProperty("q").GetString() ?? "");

@@ -66,10 +66,14 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         Directory.CreateDirectory(testDownloads);
         w.Settings.DownloadFolder = testDownloads;
         w.Settings.Commit();
+        // Nor does "start with Windows" ever touch Windows' real Run key, and the notification area's messages stay silent.
+        MainWindow.AutoStartKey = TestRunKey;
+        TrayIcon.SilentForTest = true;
         try { await RunStepsAsync(); }
         catch (Exception e) { Check("no crash", false, e.ToString()); }
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "selftest.json"), JsonSerializer.Serialize(_results, new JsonSerializerOptions { WriteIndented = true }));
+        try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\VireoSelfTest", throwOnMissingSubKey: false); } catch { /* nothing to clean */ }
         Application.Current.Shutdown(_failed ? 1 : 0);
     }
 
@@ -190,6 +194,8 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         if (Only?.Contains("sites") == true) await Step("sites", RunSiteSurveyAsync);
         if (Only?.Contains("freezes") == true) await Step("freezes", RunFreezeStepsAsync);
         if (Only?.Contains("animations") == true) await Step("animations", RunAnimationStepsAsync);
+        await Step("welcome", RunWelcomeStepsAsync);
+        await Step("manager", RunDownloadManagerStepsAsync);
         await Step("settingslook", RunSettingsLookStepsAsync);
 
         // 8. Many tabs share the width

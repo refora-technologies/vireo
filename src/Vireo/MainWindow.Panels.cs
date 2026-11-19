@@ -40,6 +40,24 @@ public partial class MainWindow
 
     internal void ShowSettings() => OpenDrawer("Settings", BuildSettings());
 
+    /// <summary>Where "start with Windows" is written: Windows' Run key, or a key of their own for tests.</summary>
+    internal static string AutoStartKey = AutoStart.DefaultRunKey;
+
+    private bool SetAutoStart(bool on) => Environment.ProcessPath is { } exe && AutoStart.Set(on, exe, App.ProfileId, AutoStartKey);
+
+    /// <summary>
+    /// "Use Vireo for downloads" from the welcome page: the downloader stays in the notification area, starts with Windows,
+    /// and offers copied links; off undoes all three.
+    /// </summary>
+    internal void UseAsDownloadManager(bool on)
+    {
+        _settings.DownloadManager = on;
+        _settings.WatchClipboard = on;
+        _settings.Commit();
+        SetAutoStart(on);
+        ApplyDownloadManagerChoices();
+    }
+
     private UIElement BuildSettings()
     {
         void Save() => _settings.Commit();
@@ -152,7 +170,17 @@ public partial class MainWindow
             UiKit.Block("Save to", null, where),
             UiKit.Block("Private window downloads", "Asked once, at the first download in a private window. Vireo keeps no record of what was saved.", privateWhere));
 
-        return UiKit.Page(UiKit.Heading("Tabs"), tabs, UiKit.Heading("Privacy"), privacy, UiKit.Heading("Downloads"), downloads, UiKit.Heading("Memory"), memory, UiKit.Heading("Search"), search, UiKit.Heading("Make it yours"), yours, UiKit.Heading("About"), about);
+        var manager = UiKit.Card(
+            UiKit.Row("Use Vireo as your download manager", "The downloader keeps its icon in the notification area, by the clock, also when the browser is closed (it uses about 35 MB), and tells you when each download is finished.",
+                UiKit.Switch(s.DownloadManager, on => { s.DownloadManager = on; Save(); ApplyDownloadManagerChoices(); })),
+            UiKit.Row("Start the downloader with Windows", "Only the downloader starts, quietly, in the notification area. Windows' Startup apps list shows it as Vireo Downloads.",
+                UiKit.Switch(AutoStart.IsOn(App.ProfileId, AutoStartKey), on => SetAutoStart(on))),
+            UiKit.Row("Offer links you copy", "A link to a file copied in another program brings a \"Download this?\" notice by the clock. What you copy is looked at on this computer only and never kept.",
+                UiKit.Switch(s.WatchClipboard, on => { s.WatchClipboard = on; Save(); ApplyDownloadManagerChoices(); })),
+            UiKit.Row("Sort downloads into folders", "Video, Music, Pictures, Documents, Programs and Compressed, inside the download folder. A folder you pick yourself is left as it is.",
+                UiKit.Switch(s.SortByType, on => { s.SortByType = on; Save(); })));
+
+        return UiKit.Page(UiKit.Heading("Tabs"), tabs, UiKit.Heading("Privacy"), privacy, UiKit.Heading("Downloads"), downloads, UiKit.Heading("Download manager"), manager, UiKit.Heading("Memory"), memory, UiKit.Heading("Search"), search, UiKit.Heading("Make it yours"), yours, UiKit.Heading("About"), about);
     }
 
 }

@@ -14,6 +14,15 @@ public sealed class TrayDownloadsWindow : Window
 {
     public event Action? OpenBrowserRequested;
     public event Action? QuitRequested;
+    private readonly TextBlock _note = new() { FontSize = 11.5, Foreground = UiKit.Brush("Text3"), TextWrapping = TextWrapping.Wrap };
+    private readonly Button _open = new() { Content = "Open Vireo", Padding = new Thickness(16, 7, 16, 7) };
+
+    /// <summary>Says whether the browser is closed (only the downloader runs) or open.</summary>
+    public void Describe(bool browserClosed)
+    {
+        _note.Text = browserClosed ? "The browser is closed. Downloads carry on here, using very little." : "Your downloads, from the notification area.";
+        _open.Content = browserClosed ? "Open Vireo" : "Go to Vireo";
+    }
 
     public TrayDownloadsWindow(DownloadEngine engine)
     {
@@ -40,8 +49,8 @@ public sealed class TrayDownloadsWindow : Window
         var mark = new Image { Source = (System.Windows.Media.ImageSource)Application.Current.FindResource("AppMark"), Width = 22, Height = 22, Margin = new Thickness(0, 0, 10, 0) };
         head.Children.Add(mark);
         var titles = new StackPanel();
-        titles.Children.Add(new TextBlock { Text = "Downloads", FontSize = 15, FontWeight = FontWeights.SemiBold });
-        titles.Children.Add(new TextBlock { Text = "Vireo is closed and keeps downloading in the background.", FontSize = 11.5, Foreground = UiKit.Brush("Text3"), TextWrapping = TextWrapping.Wrap });
+        titles.Children.Add(new TextBlock { Text = "Vireo Downloads", FontSize = 15, FontWeight = FontWeights.SemiBold });
+        titles.Children.Add(_note);
         head.Children.Add(titles);
         Grid.SetRow(head, 0);
         root.Children.Add(head);
@@ -56,13 +65,15 @@ public sealed class TrayDownloadsWindow : Window
         var quit = new Button { Style = (Style)Application.Current.FindResource("GhostButton"), Content = "Quit", HorizontalAlignment = HorizontalAlignment.Left, Padding = new Thickness(10, 6, 10, 6), ToolTip = "Stop downloading and close Vireo (unfinished downloads carry on next time)" };
         quit.Click += (_, _) => QuitRequested?.Invoke();
         foot.Children.Add(quit);
-        var open = new Button { Style = (Style)Application.Current.FindResource("PrimaryButton"), Content = "Open Vireo", Padding = new Thickness(16, 7, 16, 7) };
+        var open = _open;
+        open.Style = (Style)Application.Current.FindResource("PrimaryButton");
         open.Click += (_, _) => OpenBrowserRequested?.Invoke();
         Grid.SetColumn(open, 1);
         foot.Children.Add(open);
         Grid.SetRow(foot, 2);
         root.Children.Add(foot);
         Content = root;
+        Describe(true);
 
         Deactivated += (_, _) => Hide();
         KeyDown += (_, e) => { if (e.Key == Key.Escape) Hide(); };

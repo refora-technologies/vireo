@@ -69,6 +69,7 @@ public partial class MainWindow : Window
         };
         Activated += (_, _) =>
         {
+            RefreshWelcome(); // back from choosing the default browser in Windows' Settings
             if (_findWaiting && _findPopup is not null) { _findPopup.IsOpen = true; Native.KeepJustAbove(_findPopup, this); }
             _findWaiting = false;
         };
@@ -101,6 +102,7 @@ public partial class MainWindow : Window
         ApplyTabSide(_settings.TabSide, animate: false);
         StartLibrary(data);
         StartDownloads();
+        if (!_private) ApplyDownloadManagerChoices(); // the downloader's icon, for someone who uses Vireo as their download manager
         StartBlocking();
         StartMedia();
         _lowEnd = SuspensionPolicy.ForMemory(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes) == SuspensionSettings.LowEnd;
@@ -125,6 +127,8 @@ public partial class MainWindow : Window
             var restored = !selfTest && !_private && _settings.RestoreTabs && await RestoreSessionAsync();
             if (first is not null) await OpenTabAsync(UrlInput.Resolve(first, _settings.SearchTemplate));
             else if (!restored) await OpenTabAsync(null);
+            // Once: the welcome (a first start, or the update that brings something new). Not when a link was being opened.
+            if (first is null && WelcomeDue) await OpenWelcomeAsync();
         }
         if (IsFirstWindow) { StartSession(); StartSync(); StartUpdates(); }
         StartHome();

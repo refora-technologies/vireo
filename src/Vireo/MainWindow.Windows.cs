@@ -51,6 +51,7 @@ public partial class MainWindow
             s_library?.Dispose();
             s_library = null;
             if (s_keepDownloading && s_downloads is { } engine) { EnterBackground(engine); return; } // the downloads go on
+            LeaveTray();
             s_downloads?.Dispose();
             s_downloads = null;
         };

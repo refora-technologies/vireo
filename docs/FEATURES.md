@@ -35,6 +35,40 @@ Its tooltip shows the progress; a click opens a small window with every download
 and "Open Vireo", which brings the browser back in the same process without interrupting anything. When everything is done
 it shows a notice and exits a minute later. Settings, Downloads, sets the answer for every time.
 
+**A download manager of its own.** Someone who chooses Vireo as their download manager (on the welcome page, or Settings,
+Download manager) gets what other download managers offer, without a second program:
+- The downloader keeps its icon in the notification area, also while the browser is open, and stays when the browser
+  closes. "Vireo Downloads" in the Start menu (`Vireo.exe --downloads`) opens only the downloader, with no browser and no
+  page engine: about 10 MB of memory once it has settled. It can start with Windows, quietly (one value in the current
+  user's Run key, listed as "Vireo Downloads" in Windows' Startup apps; uninstalling removes it).
+- A link to a file copied in another program brings a "Download this?" notification by the clock; one click downloads it.
+  Only a single web address to a file (by its extension; not pictures) or a file host's page is offered, each once.
+  What was copied is looked at on the computer only and never kept; copies made in Vireo, links with a password in them,
+  and anything a password manager marks as private are not read.
+- Each finished download is announced with a click to show it in its folder (in the browser: Open and Show in folder).
+- **Same link, same download:** adding the address of a download that is unfinished (paused, failed, or still running)
+  carries that one on, with any fresh sign-in cookies, instead of saving a second copy as "name (1)".
+- **Sorted into folders:** optionally, downloads go into Video, Music, Pictures, Documents, Programs and Compressed folders
+  inside the download folder. A folder chosen for one download is left as it is.
+- **Start at a time:** the Downloads panel's "Schedule…" starts every paused download (and those a file host's limit
+  stopped) in an hour, tonight at 1:00 or tomorrow at 8:00. It is kept across a restart; a time that passed while Vireo was
+  closed still counts within 12 hours, older ones are dropped rather than starting downloads out of the blue.
+- **When done:** the same menu can put the computer to sleep or shut it down once everything has
+  finished. It lasts for that one time only (never saved), waits for at least one download to end, and always shows a
+  one-minute warning with Cancel in front; a download starting again cancels it.
+- **Checksums:** a finished download's check button takes the SHA-256 (or SHA-1, MD5) a site publishes and says whether the
+  file matches; left empty, it shows the file's SHA-256.
+- **File hosts in words:** pixeldrain's documented refusals are read and explained ("pixeldrain's daily download limit for
+  free users is reached", "pixeldrain wants you to open this file on its page first"); a used-up limit is not retried in
+  a loop, while "too many connections at once" just means fewer connections. A pixeldrain share page (`/u/...`) pasted or
+  copied is downloaded from its direct address. Other hosts' "bandwidth limit exceeded" (509) and "too many requests"
+  (429) are said plainly too.
+
+**A welcome, once.** The first start opens a welcome page: what Vireo does, then three things to set up, each doing the
+real thing: bring bookmarks and history (it names the browsers it found), make Vireo the default browser (Windows' own page
+opens to confirm), and whether to use Vireo for downloads. People updating see it once too, as what is new. Only Vireo's
+own welcome document can press its buttons; a web page's message is ignored.
+
 **Saves video and audio from pages, natively.** Vireo watches what a page plays (`src/Vireo/Media`) and
 puts a **Download** button right on each video or audio player, with a menu of qualities. The toolbar
 button counts what a page offers and opens a Media panel with the same choices. It understands plain

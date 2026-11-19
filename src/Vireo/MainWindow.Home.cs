@@ -156,7 +156,9 @@ public partial class MainWindow
 
         if (kind is null)
         {
-            var item = Downloads.Add(new DownloadRequest(url, null, null, core.Settings.UserAgent, null));
+            // A file host's share page (pixeldrain.com/u/...) is downloaded from its direct address.
+            var item = Downloads.Add(new DownloadRequest(FileHosts.DirectAddress(uri) ?? url, null, null, core.Settings.UserAgent, null), out var continued);
+            if (continued) return (true, $"Already on the list: {item.FileName} carries on from where it stopped.");
             ShowToast("Downloading", uri.Host, ShowDownloads);
             return (true, $"Downloading from {uri.Host}…");
         }

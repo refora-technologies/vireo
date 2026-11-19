@@ -43,6 +43,11 @@ src\Vireo\bin\Release\net10.0-windows\Vireo.exe --selftest out\shots http://127.
 
 `VIREO_STEPS=windows,privacy` runs only some of the steps.
 
+The `welcome` and `manager` steps cover the welcome page and the download-manager features. "Start with Windows" is written
+to a key of the test's own (`HKCU\Software\VireoSelfTest\Run`, removed at the end), never to Windows' Run key; the
+notification area's messages are recorded, not shown; "when done" only records what it would have done; and the
+downloader started alone (`--downloads --quiet`) runs in a profile folder inside the out folder.
+
 Public sites (needs the internet, only on request): `VIREO_STEPS=sites` opens each page in the survey list, presses play
 and its Download button, and reports what was found. `VIREO_SITES=<names>` picks some of them; `VIREO_SURVEY_URL=<page>`
 adds one page of your own; `VIREO_SURVEY_DOWNLOAD=1` saves the smallest quality into the out folder and checks it plays;

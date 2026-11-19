@@ -357,6 +357,12 @@ public partial class MainWindow
                 HandleContinueHttp(core, root.GetProperty("u").GetString() ?? "");
                 return;
             }
+            // The welcome page's buttons change settings: only Vireo's own welcome document, in the top frame, is heard.
+            if (type.StartsWith("welcome-", StringComparison.Ordinal))
+            {
+                if (frame is null && IsWelcomeAddress(e.Source)) HandleWelcomeMessage(tab, core, root, type);
+                return;
+            }
             if (HandleHomeMessage(tab, core, root, type)) return;
             if (type == "search" && Uri.TryCreate(core.Source, UriKind.Absolute, out var from) && from.Host == StartHost)
             {

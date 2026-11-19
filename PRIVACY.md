@@ -20,6 +20,11 @@ it is gone when the window closes. Only the files you choose to download are kep
 downloads. A file saved in a private window carries Windows' "from the internet" mark (so Windows still checks it before
 it runs) but not the address it came from.
 
+**Offering links you copy** (off unless you turn it on, in Settings → Download manager or on the welcome page): when you
+copy something in another program, Vireo looks at it on your computer to see whether it is a single link to a file. If it
+is, Vireo offers to download it; if not, it is ignored at once. Nothing you copy is stored, logged or sent anywhere.
+Copies made in Vireo itself, and anything a password manager marks as private, are not read at all.
+
 ## What Vireo sends, and to whom
 
 Apart from the sites you visit, Vireo only connects to these, and only for these reasons:

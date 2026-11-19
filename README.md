@@ -45,7 +45,8 @@ Chrome and Edge. Everything around the page, from the tabs to the download manag
   sound come separately, which it joins into one MP4 itself, with no outside tools. Protected (DRM) content is recognised
   and never downloaded.
 - **A real download manager:** big files come down over several connections at once, survive a dropped connection or a
-  restart, and can be queued and speed-limited.
+  restart, and can be queued and speed-limited. It can also live by the clock on its own (about 10 MB), start with
+  Windows, offer links you copy, sort files into folders, check checksums, and sleep or shut down the computer when done.
 - **Private by default:** clean links (tracking tags removed), secure connections preferred, your network address hidden
   from video-call scripts, and private windows that leave nothing behind but the files you choose to keep.
 - **Light on memory:** hidden tabs are frozen, then freed, and wake with their page when you return. Made for low-end

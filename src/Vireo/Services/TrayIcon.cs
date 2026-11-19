@@ -10,7 +10,7 @@ namespace Vireo.Services;
 public sealed class TrayIcon : IDisposable
 {
     private const int CallbackMessage = 0x8000 + 77; // WM_APP + 77
-    private const int WmLeftButtonUp = 0x0202, WmRightButtonUp = 0x0205, BalloonClicked = 0x0405;
+    private const int WmLeftButtonUp = 0x0202, WmRightButtonUp = 0x0205, BalloonHidden = 0x0403, BalloonTimedOut = 0x0404, BalloonClicked = 0x0405;
     private const int NimAdd = 0, NimModify = 1, NimDelete = 2;
     private const int NifMessage = 0x1, NifIcon = 0x2, NifTip = 0x4, NifInfo = 0x10;
 
@@ -80,9 +80,24 @@ public sealed class TrayIcon : IDisposable
         }
     }
 
-    /// <summary>A short message from the icon (Windows shows it as a notification).</summary>
-    public void Balloon(string title, string text)
+    /// <summary>What clicking the current notification does (null: the same as clicking the icon).</summary>
+    private Action? _balloonClick;
+
+    /// <summary>For tests: notifications are recorded but not shown (they would appear on the tester's screen).</summary>
+    internal static bool SilentForTest;
+
+    /// <summary>The last notification shown, for tests.</summary>
+    public string? LastBalloon { get; private set; }
+
+    /// <summary>
+    /// A short message from the icon (Windows shows it as a notification). <paramref name="click"/> is what clicking it
+    /// does; without one, a click opens the same as the icon.
+    /// </summary>
+    public void Balloon(string title, string text, Action? click = null)
     {
+        _balloonClick = click;
+        LastBalloon = title + ": " + text;
+        if (SilentForTest) return;
         var data = Data(NifInfo);
         data.InfoTitle = Short(title, 63);
         data.Info = Short(text, 255);
@@ -107,10 +122,19 @@ public sealed class TrayIcon : IDisposable
         if (msg == CallbackMessage)
         {
             var what = (int)(lParam.ToInt64() & 0xFFFF);
-            if (what is WmLeftButtonUp or WmRightButtonUp or BalloonClicked) { Clicked?.Invoke(); handled = true; }
+            if (what == BalloonClicked && _balloonClick is { } act) { _balloonClick = null; act(); handled = true; }
+            else if (what is WmLeftButtonUp or WmRightButtonUp or BalloonClicked) { Clicked?.Invoke(); handled = true; }
+            else if (what is BalloonHidden or BalloonTimedOut) _balloonClick = null;
         }
         else if (msg == _taskbarCreated) Add(); // Explorer restarted: the notification area is new and empty
         return IntPtr.Zero;
+    }
+
+    /// <summary>For tests: as if the person clicked the notification.</summary>
+    internal void ClickBalloonForTest()
+    {
+        if (_balloonClick is { } act) { _balloonClick = null; act(); }
+        else Clicked?.Invoke();
     }
 
     private static string Short(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";

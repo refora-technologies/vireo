@@ -50,6 +50,27 @@ public sealed class Settings
     /// <summary>Download new versions in the background and install them when Vireo closes.</summary>
     public bool AutoUpdate { get; set; } = true;
 
+    // Download manager
+    /// <summary>
+    /// The person uses Vireo as their download manager: the downloader keeps its icon in the notification area, stays when
+    /// the browser closes, and says when downloads finish. (Starting with Windows is Windows' own Run entry, see AutoStart.)
+    /// </summary>
+    public bool DownloadManager { get; set; }
+    /// <summary>Offer to download a link to a file copied in another program. Read on this computer only, never kept.</summary>
+    public bool WatchClipboard { get; set; }
+    /// <summary>Put downloads in Video, Music, Documents, ... folders inside the download folder.</summary>
+    public bool SortByType { get; set; }
+    /// <summary>When paused downloads start by themselves (see Schedule); null when nothing is scheduled.</summary>
+    public DateTime? ScheduledStart { get; set; }
+    /// <summary>The "Vireo Downloads stays here" message has been shown once.</summary>
+    public bool TrayHintShown { get; set; }
+
+    // Welcome
+    /// <summary>The welcome this person has seen (0: none yet); a new welcome for an update raises the number.</summary>
+    public int WelcomeSeen { get; set; }
+    /// <summary>No settings file existed: this is a first start (not someone updating).</summary>
+    [JsonIgnore] public bool IsNew { get; private set; }
+
     // Buttons drawn on videos and audio in pages
     public bool ShowDownloadButtons { get; set; } = true;
     /// <summary>"hover" shows the button when you move over a video; "always" keeps it visible.</summary>
@@ -104,8 +125,10 @@ public sealed class Settings
     {
         var path = System.IO.Path.Combine(folder, "settings.json");
         Settings s;
-        try { s = File.Exists(path) ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json) ?? new() : new(); }
+        var existed = File.Exists(path);
+        try { s = existed ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json) ?? new() : new(); }
         catch { s = new(); } // a damaged file must never stop the browser from starting
+        s.IsNew = !existed;
         s.Path = path;
         if (s.Version < 2)
         {

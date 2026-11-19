@@ -22,6 +22,134 @@ public class ResilienceTests
     }
 
     [Fact]
+    public async Task A_connection_that_goes_silent_mid_file_is_cut_and_the_file_still_completes()
+    {
+        // The server stops sending on two connections but leaves them open: before the watchdog these hung for ever.
+        using var box = new Sandbox();
+        using var server = new TestServer(3_000_000) { HangFirst = 2, HangAfterBytes = 200_000 };
+        using var engine = box.Engine(connections: 4);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(60));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+    }
+
+    [Fact]
+    public async Task A_server_that_never_answers_a_request_is_asked_again()
+    {
+        // No answer at all (not even headers) to the first requests, including the first look at the file.
+        using var box = new Sandbox();
+        using var server = new TestServer(1_500_000) { HangFirst = 3, HangAfterBytes = 0 };
+        using var engine = box.Engine(connections: 3);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(60));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+    }
+
+    [Fact]
+    public async Task Connections_that_keep_dropping_do_not_end_the_download()
+    {
+        // Far more drops than one connection tolerates: before, the first connection to give up ended the whole download.
+        using var box = new Sandbox();
+        using var server = new TestServer(4_000_000) { DropFirst = 40, DropAfterBytes = 50_000 };
+        using var engine = box.Engine(connections: 4);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(90));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+    }
+
+    [Fact]
+    public async Task An_outage_in_the_middle_is_waited_out_and_the_file_completes()
+    {
+        using var box = new Sandbox();
+        using var server = new TestServer(3_000_000) { ChunkDelayMs = 10 };
+        using var engine = box.Engine(connections: 3);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        for (var i = 0; i < 200 && item.Downloaded < 500_000; i++) await Task.Delay(25);
+        Assert.True(item.Downloaded > 0, "it started");
+        server.OutageUntil = DateTime.UtcNow.AddSeconds(6); // longer than all the old retries together
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(90));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+    }
+
+    [Fact]
+    public async Task While_the_computer_is_offline_it_waits_without_using_up_its_tries()
+    {
+        using var box = new Sandbox();
+        using var server = new TestServer(1_000_000);
+        using var engine = box.Engine(connections: 2);
+        engine.Options.MaxReconnects = 1; // with tries counted, one failure would end it
+        var online = false;
+        engine.OnlineForTest = () => online;
+        server.OutageUntil = DateTime.UtcNow.AddSeconds(5);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        for (var i = 0; i < 300 && item.Note?.Contains("waiting for the internet") != true; i++) await Task.Delay(20);
+        Assert.Contains("waiting for the internet", item.Note);
+        await Task.Delay(5500);
+        online = true;
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(60));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+    }
+
+    [Fact]
+    public async Task A_host_that_allows_few_connections_still_gets_the_whole_file()
+    {
+        // A free file host answering "too many requests" beyond two connections at once.
+        using var box = new Sandbox();
+        using var server = new TestServer(3_000_000) { AllowedAtOnce = 2, ChunkDelayMs = 2 };
+        using var engine = box.Engine(connections: 8);
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(90));
+
+        Assert.Equal(DownloadState.Completed, item.State);
+        Assert.Equal(server.Data, File.ReadAllBytes(item.FinalPath));
+        Assert.True(server.TooManyAnswers > 0, "the host did refuse some connections");
+    }
+
+    [Fact]
+    public async Task A_download_that_fails_says_why_in_plain_words()
+    {
+        using var box = new Sandbox();
+        using var server = new TestServer(1_000_000) { OutageUntil = DateTime.MaxValue };
+        using var engine = box.Engine(connections: 2);
+        engine.Options.MaxReconnects = 2;
+        engine.OnlineForTest = () => true;
+        var item = engine.Add(new DownloadRequest(server.BaseUrl + "/file.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromSeconds(60));
+
+        Assert.Equal(DownloadState.Failed, item.State);
+        Assert.DoesNotContain("operation was canceled", item.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False(string.IsNullOrWhiteSpace(item.Error));
+    }
+
+    /// <summary>
+    /// A real free file host, with its real throttling: pixeldrain's speed-test address (random bytes, nobody's content).
+    /// Only on request, as it uses the internet and counts toward the host's daily transfer allowance: VIREO_LIVE=1.
+    /// </summary>
+    [Fact]
+    public async Task A_download_from_a_real_free_file_host_completes()
+    {
+        if (Environment.GetEnvironmentVariable("VIREO_LIVE") != "1") return;
+        var size = long.TryParse(Environment.GetEnvironmentVariable("VIREO_LIVE_BYTES"), out var b) ? b : 200L * 1024 * 1024;
+        using var box = new Sandbox();
+        using var engine = new DownloadEngine(box.State, new DownloadOptions { Folder = box.Files }); // the real defaults
+        var item = engine.Add(new DownloadRequest($"https://pixeldrain.com/api/misc/speedtest?limit={size}", "host-test.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromMinutes(30));
+
+        Assert.True(item.State == DownloadState.Completed, $"{item.State}: {item.Error}");
+        Assert.Equal(size, new FileInfo(item.FinalPath).Length);
+    }
+
+    [Fact]
     public async Task A_missing_file_fails_at_once_without_pointless_retries()
     {
         using var box = new Sandbox();

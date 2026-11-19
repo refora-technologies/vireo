@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:c="clr-namespace:Vireo.Controls"
         Title="Vireo" Width="1280" Height="820" MinWidth="560" MinHeight="380"
-        Background="{StaticResource FrameBrush}" FontFamily="{StaticResource UiFont}" Foreground="{StaticResource Text}" Typography.NumeralAlignment="Tabular"
+        Background="{StaticResource FrameBrush}" FontFamily="{StaticResource UiFont}" Foreground="{StaticResource Text}"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType">
 
@@ -81,8 +81,11 @@
             <Border x:Name="RightHost" Grid.Column="2"/>
 
             <!-- Drawer: downloads, settings, bookmarks, history. It takes space from the page, so it never hides behind it. -->
+            <!-- The panel's place is set once; the card inside slides and fades (a cheap, GPU-only move) rather than the panel
+                 growing, which made the page beside it re-lay out on every frame. -->
             <Border x:Name="Drawer" Grid.Column="3" Width="0" ClipToBounds="True">
-                <Border Margin="8,0,0,0" CornerRadius="12" Background="{StaticResource Surface1}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                <Border x:Name="DrawerCard" Margin="8,0,0,0" CornerRadius="12" Background="{StaticResource Surface1}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                <Border.RenderTransform><TranslateTransform x:Name="DrawerSlide"/></Border.RenderTransform>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="56"/>
@@ -184,8 +187,9 @@
                     <Button x:Name="ShieldButton" Style="{StaticResource IconButton}" ToolTip="Blocking" Click="OnShield" Width="Auto" MinWidth="34">
                         <StackPanel Orientation="Horizontal" Margin="9,0">
                             <TextBlock x:Name="ShieldIcon" Text="&#xEA18;" FontFamily="{StaticResource Icons}" FontSize="14" VerticalAlignment="Center" Foreground="{StaticResource Text2}"/>
+                            <!-- A steady width, so the toolbar and the address bar do not move as the number grows. -->
                             <TextBlock x:Name="ShieldCount" FontFamily="{StaticResource MonoFont}" FontSize="11.5" FontWeight="Medium" Foreground="{StaticResource Text2}"
-                                       Margin="5,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5"/>
+                                       Margin="5,0,0,0" MinWidth="27" VerticalAlignment="Center" Visibility="Collapsed" RenderTransformOrigin="0.5,0.5"/>
                         </StackPanel>
                     </Button>
                     <Button x:Name="DownloadsButton" Style="{StaticResource IconButton}" ToolTip="Downloads (Ctrl+J)" Click="OnDownloads">
@@ -250,7 +254,7 @@
                HorizontalOffset="-262" VerticalOffset="2" StaysOpen="False" AllowsTransparency="True"
                PopupAnimation="None" Grid.Row="1">
             <Border x:Name="MenuCard" TextElement.Foreground="{StaticResource Text}" TextElement.FontFamily="{StaticResource UiFont}"
-                    Width="292" Margin="14" CornerRadius="14" Background="{StaticResource Surface2}" Typography.NumeralAlignment="Tabular"
+                    Width="292" Margin="14" CornerRadius="14" Background="{StaticResource Surface2}"
                     BorderBrush="{StaticResource Line2}" BorderThickness="1" RenderTransformOrigin="1,0" Opacity="0">
                 <Border.Effect><DropShadowEffect BlurRadius="28" ShadowDepth="8" Opacity="0.5" Color="Black"/></Border.Effect>
                 <Border.RenderTransform><ScaleTransform x:Name="MenuScale" ScaleX="0.97" ScaleY="0.97"/></Border.RenderTransform>

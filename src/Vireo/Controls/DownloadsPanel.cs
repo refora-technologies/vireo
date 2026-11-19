@@ -62,7 +62,10 @@ public sealed class DownloadsPanel : Grid
         _clear.Click += (_, _) => ClearFinished();
         var header = new Grid { Margin = new Thickness(20, 4, 14, 6) };
         header.Children.Add(_summary);
-        header.Children.Add(_clear);
+        var tools = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        tools.Children.Add(WhenDoneButton());
+        tools.Children.Add(_clear);
+        header.Children.Add(tools);
         SetRow(header, 2);
         Children.Add(header);
 
@@ -149,7 +152,73 @@ public sealed class DownloadsPanel : Grid
             return;
         }
         _url.Clear();
-        _engine.Add(new DownloadRequest(u.ToString()));
+        // A file host's share page is downloaded from its direct address.
+        _engine.Add(new DownloadRequest(FileHosts.DirectAddress(u) ?? u.ToString()));
+    }
+
+    /// <summary>
+    /// One small menu for time: when paused downloads start by themselves (see Schedule), and what the computer does once
+    /// everything has finished (see WhenDone, this time only).
+    /// </summary>
+    private Button WhenDoneButton()
+    {
+        var b = new Button { Style = (Style)Application.Current.FindResource("GhostButton"), FontSize = 11.5, Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(0, 0, 4, 0), Name = "Schedule" };
+        void Show()
+        {
+            var start = Schedule.At is { } at ? (at.Date == DateTime.Today ? $"Starts {at:HH:mm}" : $"Starts {at:ddd HH:mm}") : null;
+            var then = WhenDone.Choice switch { AfterDownloads.Sleep => "sleep", AfterDownloads.ShutDown => "shut down", _ => null };
+            b.Content = (start, then) switch
+            {
+                (null, null) => "Schedule…",
+                (_, null) => start,
+                (null, _) => $"When done: {then}",
+                _ => $"{start}, then {then}",
+            };
+        }
+        Show();
+        b.ToolTip = "Start paused downloads at a time, and what the computer does once all downloads have finished";
+
+        var menu = new ContextMenu { PlacementTarget = b, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        MenuItem Heading(string text) => new() { Header = text, IsEnabled = false, FontSize = 11.5 };
+        var starts = new List<(MenuItem Item, Func<DateTime?> When)>();
+        void AddStart(string label, Func<DateTime?> when)
+        {
+            var item = new MenuItem { Header = label, IsCheckable = true };
+            item.Click += (_, _) => Schedule.Set(when());
+            menu.Items.Add(item);
+            starts.Add((item, when));
+        }
+        menu.Items.Add(Heading("Start paused downloads"));
+        AddStart("Not scheduled", () => null);
+        AddStart("In an hour", () => DateTime.Now.AddHours(1));
+        AddStart($"Tonight at 1:00", () => Schedule.Next(1));
+        AddStart($"Tomorrow at 8:00", () => DateTime.Today.AddDays(1).AddHours(8));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Heading("When everything is done (this time only)"));
+        var dones = new List<(MenuItem Item, AfterDownloads Choice)>();
+        foreach (var (label, choice) in new[] { ("Do nothing", AfterDownloads.Nothing), ("Sleep", AfterDownloads.Sleep), ("Shut down", AfterDownloads.ShutDown) })
+        {
+            var item = new MenuItem { Header = label, IsCheckable = true };
+            item.Click += (_, _) => WhenDone.Choose(choice, _engine);
+            menu.Items.Add(item);
+            dones.Add((item, choice));
+        }
+        menu.Opened += (_, _) =>
+        {
+            starts[0].Item.IsChecked = Schedule.At is null;
+            for (var i = 1; i < starts.Count; i++) starts[i].Item.IsChecked = false;
+            if (Schedule.At is { } at) starts[0].Item.Header = $"Not scheduled (now: {at:ddd HH:mm})";
+            else starts[0].Item.Header = "Not scheduled";
+            foreach (var (item, choice) in dones) item.IsChecked = WhenDone.Choice == choice;
+        };
+        b.Click += (_, _) => menu.IsOpen = true;
+        void OnChanged() => Dispatcher.BeginInvoke(Show);
+        void Hook() { WhenDone.Changed -= OnChanged; WhenDone.Changed += OnChanged; Schedule.Changed -= OnChanged; Schedule.Changed += OnChanged; }
+        void Unhook() { WhenDone.Changed -= OnChanged; Schedule.Changed -= OnChanged; }
+        Hook();
+        Unloaded += (_, _) => Unhook();
+        Loaded += (_, _) => { Hook(); Show(); };
+        return b;
     }
 
     private void ClearFinished()

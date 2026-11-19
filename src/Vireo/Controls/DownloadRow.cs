@@ -23,6 +23,8 @@ public sealed class DownloadRow : Border
     private readonly SegmentBar _bar = new() { Margin = new Thickness(0, 7, 0, 0) };
     private readonly StackPanel _buttons = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 0, 0) };
     private readonly ContentControl _badge = new() { VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 12, 0), Focusable = false };
+    private readonly StackPanel _text = new() { VerticalAlignment = VerticalAlignment.Center };
+    private ChecksumBox? _checksum;
     private DownloadState? _shownState;
     private string _badgeKey = "";
 
@@ -50,7 +52,7 @@ public sealed class DownloadRow : Border
         Grid.SetColumn(_pct, 1);
         title.Children.Add(_pct);
 
-        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var text = _text;
         text.Children.Add(title);
         text.Children.Add(_bar);
         text.Children.Add(_status);
@@ -65,7 +67,14 @@ public sealed class DownloadRow : Border
 
         MouseEnter += (_, _) => Background = UiKit.Brush("Hover");
         MouseLeave += (_, _) => Background = Brushes.Transparent;
-        MouseLeftButtonUp += (_, e) => { if (item.State == DownloadState.Completed && e.OriginalSource is not Button) Open(); };
+        // A click on a finished download opens it; not a click inside its checksum box.
+        MouseLeftButtonUp += (_, e) =>
+        {
+            if (item.State != DownloadState.Completed || e.OriginalSource is Button) return;
+            for (var d = e.OriginalSource as DependencyObject; d is not null; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+                if (d == _checksum) return;
+            Open();
+        };
         Refresh();
     }
 
@@ -146,6 +155,7 @@ public sealed class DownloadRow : Border
                 Add(0xE711, "Cancel", () => _engine.Cancel(i));
                 break;
             case DownloadState.Completed:
+                Add(0xE73E, "Check the file against the checksum its site publishes", ToggleChecksum);
                 Add(0xE838, "Show in folder", ShowInFolder);
                 Add(0xE74D, "Remove from the list (the file stays)", () => _engine.Remove(i));
                 break;
@@ -182,19 +192,14 @@ public sealed class DownloadRow : Border
         catch { /* no program for this type */ }
     }
 
-    private void ShowInFolder()
+    private void ShowInFolder() => Format.ShowInFolder(_item.FinalPath);
+
+    /// <summary>Opens (or closes) the checksum box under the file's name.</summary>
+    internal void ToggleChecksum()
     {
-        try
-        {
-            if (File.Exists(_item.FinalPath))
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{_item.FinalPath}\"") { UseShellExecute = true });
-            }
-            else if (Directory.Exists(_item.Folder))
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", _item.Folder) { UseShellExecute = true });
-            }
-        }
-        catch { /* explorer unavailable */ }
+        if (_checksum is not null) { _text.Children.Remove(_checksum); _checksum = null; return; }
+        _checksum = new ChecksumBox(_item.FinalPath);
+        _text.Children.Add(_checksum);
     }
+    internal ChecksumBox? ChecksumForTest => _checksum;
 }

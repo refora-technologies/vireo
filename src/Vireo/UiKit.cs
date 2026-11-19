@@ -80,13 +80,17 @@ internal static class UiKit
     /// <summary>A row of choices where exactly one is picked.</summary>
     public static Border Segmented<T>(IReadOnlyList<(string Label, T Value)> options, T current, Action<T> changed)
     {
-        var grid = new UniformGrid { Rows = 1 };
+        // Each choice gets a share of the width in proportion to its label (plus room for padding), so a long one
+        // ("DuckDuckGo") is never cut while short ones ("Bing") still fill the strip evenly.
+        var grid = new Grid();
         var group = Guid.NewGuid().ToString();
         foreach (var (label, value) in options)
         {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(label.Length + 5, GridUnitType.Star) });
             var r = new RadioButton { Style = (Style)Application.Current.FindResource("Segment"), Content = label, GroupName = group, IsChecked = EqualityComparer<T>.Default.Equals(value, current) };
             var chosen = value;
             r.Checked += (_, _) => changed(chosen);
+            Grid.SetColumn(r, grid.Children.Count);
             grid.Children.Add(r);
         }
         return Track(grid);

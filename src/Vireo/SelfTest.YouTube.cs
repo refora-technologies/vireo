@@ -41,6 +41,10 @@ internal sealed partial class SelfTest
             state = await OverlayState(tab);
         }
         Check("a Download button appears on YouTube's player", state.GetProperty("buttons").GetInt32() >= 1, state.ToString());
+        // What the YouTube ads script did on the real page (YouTube decides whether to send ads, so this is reported, not checked).
+        var ads = await w.EvalAsync(tab, "JSON.stringify({ stats: window.__vireoYtStats || null, adShowing: !!document.querySelector('.html5-video-player.ad-showing') })");
+        Console.WriteLine($"YOUTUBE ADS  {ads}");
+        Check("YouTube's page works with its ads removed (no ad playing)", !ads.Contains("\\\"adShowing\\\":true"), ads);
         // The test does not need the video to keep playing: paused, YouTube's autoplay cannot move the tab to the next video.
         await w.EvalAsync(tab, "document.querySelector('video') && document.querySelector('video').pause()");
         // A hover button hides again when the (pretend) mouse goes quiet: hover and press until the menu is open.
@@ -58,7 +62,17 @@ internal sealed partial class SelfTest
 
         var index = rows.FindIndex(r => r.StartsWith("144p"));
         var before = w.Downloads.Items.Count;
+        // The menu closes when the (pretend) mouse goes quiet, as it would if a person moved away: if it closed while the
+        // screenshot was taken, open it again before choosing.
         var picked = await w.EvalAsync(tab, $"window.__vireoTest.pick({index})");
+        for (var again = 0; again < 4 && picked != "true"; again++)
+        {
+            await w.EvalAsync(tab, "window.__vireoTest.hover()");
+            await Task.Delay(200);
+            await w.EvalAsync(tab, "window.__vireoTest.press()");
+            for (var i = 0; i < 20 && (await OverlayState(tab)).GetProperty("rows").GetArrayLength() == 0; i++) await Task.Delay(150);
+            picked = await w.EvalAsync(tab, $"window.__vireoTest.pick({index})");
+        }
         await Task.Delay(8000);
         Console.WriteLine($"INFO  after picking row {index} ({picked}): " + string.Join(" || ", w.Downloads.Items.Select(i => $"{i.FileName} {i.State} {i.Error} pair={i.Pair is not null} stream={i.Stream is not null} {i.Downloaded}/{i.Total} {i.Url[..Math.Min(70, i.Url.Length)]}")));
         var d = await Finish(i => i.Pair is not null, 240000);

@@ -92,6 +92,8 @@ Type: files; Name: "{app}\*.pdb"
 
 [Icons]
 Name: "{autoprograms}\Vireo"; Filename: "{app}\Vireo.exe"; IconFilename: "{app}\Vireo.exe"; Comment: "Browse the web with Vireo"
+; The download manager on its own: only the downloader, in the notification area, without the browser.
+Name: "{autoprograms}\Vireo Downloads"; Filename: "{app}\Vireo.exe"; Parameters: "--downloads"; IconFilename: "{app}\Vireo.exe"; Comment: "Vireo's download manager, without the browser"
 Name: "{autodesktop}\Vireo"; Filename: "{app}\Vireo.exe"; IconFilename: "{app}\Vireo.exe"; Comment: "Browse the web with Vireo"; Tasks: desktopicon
 
 [Run]

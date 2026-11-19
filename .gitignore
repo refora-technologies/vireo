@@ -18,3 +18,6 @@ TestResults/
 design/
 RESEARCH.md
 PROGRESS.json
+
+# Developer tools installed beside the project (dotnet-stack for freeze investigations)
+.tools/

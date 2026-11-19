@@ -54,7 +54,7 @@ public partial class MainWindow
 
     internal MainWindow OpenPrivateWindowForTest()
     {
-        var win = new MainWindow(true) { Left = Left + 40, Top = Top + 40, Width = Width, Height = Height, Topmost = true };
+        var win = new MainWindow(true) { Left = Left + 40, Top = Top + 40, Width = Width, Height = Height };
         win.Show();
         return win;
     }

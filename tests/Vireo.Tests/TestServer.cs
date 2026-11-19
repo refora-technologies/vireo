@@ -25,6 +25,19 @@ public sealed partial class TestServer : IDisposable
     /// <summary>The first N requests are answered "503 service unavailable", like a server having a moment.</summary>
     public int Unavailable503First { get; set; }
     private int _unavailable;
+    /// <summary>The first N responses go silent after this many bytes (0: before even answering), and stay open, like a
+    /// connection a server has quietly abandoned.</summary>
+    public int HangFirst { get; set; }
+    public int HangAfterBytes { get; set; } = 100_000;
+    private int _hung;
+    /// <summary>Until this time every request is cut off at once, like the network going away.</summary>
+    public DateTime OutageUntil { get; set; }
+    /// <summary>More connections at once than this are answered "429 too many requests", like a free file host.</summary>
+    public int AllowedAtOnce { get; set; }
+    /// <summary>More connections at once than this get pixeldrain's "max_concurrent_downloads" refusal (403 with JSON).</summary>
+    public int HostAllowsAtOnce { get; set; }
+    public int TooManyAnswers;
+    private readonly CancellationTokenSource _closing = new();
     /// <summary>The headers of every request, so tests can see what the downloader claimed.</summary>
     public List<System.Collections.Specialized.NameValueCollection> Headers { get; } = [];
 
@@ -72,8 +85,28 @@ public sealed partial class TestServer : IDisposable
         {
             var path = ctx.Request.Url!.AbsolutePath;
             var res = ctx.Response;
+            if (DateTime.UtcNow < OutageUntil) { res.Abort(); return; }
+            if (AllowedAtOnce > 0 && now > AllowedAtOnce) { Interlocked.Increment(ref TooManyAnswers); res.StatusCode = 429; return; }
             if (path == "/missing") { res.StatusCode = 404; return; }
             if (path == "/denied") { res.StatusCode = 403; return; }
+            // A file host explaining a refusal, the way pixeldrain does (https://pixeldrain.com/api).
+            if (path.StartsWith("/host-refuses/", StringComparison.Ordinal))
+            {
+                res.StatusCode = path.EndsWith("/bandwidth") ? 509 : 403;
+                res.ContentType = "application/json";
+                var body = System.Text.Encoding.UTF8.GetBytes($"{{\"success\":false,\"value\":\"{path["/host-refuses/".Length..]}\",\"message\":\"Refused.\"}}");
+                await res.OutputStream.WriteAsync(body);
+                return;
+            }
+            // A free file host that allows this many connections at once, saying so in words above that.
+            if (HostAllowsAtOnce > 0 && now > HostAllowsAtOnce)
+            {
+                Interlocked.Increment(ref TooManyAnswers);
+                res.StatusCode = 403;
+                res.ContentType = "application/json";
+                await res.OutputStream.WriteAsync("{\"success\":false,\"value\":\"max_concurrent_downloads\"}"u8.ToArray());
+                return;
+            }
             if (path == "/unavailable" || Interlocked.Increment(ref _unavailable) <= Unavailable503First) { res.StatusCode = 503; return; }
             if (path == "/needs-referer" && string.IsNullOrEmpty(ctx.Request.Headers["Referer"])) { res.StatusCode = 403; return; }
             if (path == "/refuses-referer" && !string.IsNullOrEmpty(ctx.Request.Headers["Referer"])) { res.StatusCode = 403; return; }
@@ -96,6 +129,8 @@ public sealed partial class TestServer : IDisposable
             res.SendChunked = false;
 
             var drop = DropFirst > 0 && length > DropAfterBytes && Interlocked.Increment(ref _dropped) <= DropFirst;
+            var hang = HangFirst > 0 && length > HangAfterBytes && Interlocked.Increment(ref _hung) <= HangFirst;
+            if (hang && HangAfterBytes == 0) { await Task.Delay(Timeout.Infinite, _closing.Token); return; }
             var slow = ChunkDelayMs > 0 && (SlowWhenRangeStarts?.Invoke(partial ? start : 0) ?? true);
             var sent = 0L;
             var stream = res.OutputStream;
@@ -105,6 +140,7 @@ public sealed partial class TestServer : IDisposable
                 await stream.WriteAsync(Data.AsMemory((int)(start + sent), n));
                 sent += n;
                 if (drop && sent >= DropAfterBytes) { res.Abort(); return; }
+                if (hang && sent >= HangAfterBytes) { await stream.FlushAsync(); await Task.Delay(Timeout.Infinite, _closing.Token); return; }
                 if (slow) await Task.Delay(ChunkDelayMs);
             }
             stream.Close();
@@ -117,5 +153,9 @@ public sealed partial class TestServer : IDisposable
         }
     }
 
-    public void Dispose() => _listener.Close();
+    public void Dispose()
+    {
+        _closing.Cancel();
+        _listener.Close();
+    }
 }

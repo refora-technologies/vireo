@@ -56,4 +56,22 @@ public static class Format
             _ => 0xE8A5,
         };
     }
+
+    /// <summary>Opens a file with its usual program (Windows checks a downloaded program before it runs, as always).</summary>
+    public static void Open(string path)
+    {
+        try { if (File.Exists(path)) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true }); }
+        catch { /* no program for this type */ }
+    }
+
+    /// <summary>Opens Explorer with the file selected (or its folder, if the file has gone).</summary>
+    public static void ShowInFolder(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+            else if (Path.GetDirectoryName(path) is { } folder && Directory.Exists(folder)) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
+        }
+        catch { /* Explorer unavailable */ }
+    }
 }

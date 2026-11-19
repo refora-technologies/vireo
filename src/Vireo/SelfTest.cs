@@ -25,8 +25,9 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         return i >= 0 && outDir.Length > 0 && baseUrl.Length > 0;
     }
 
-    private void Check(string name, bool ok, string detail = "")
+    private void Check(string name, bool ok, string? detail = "")
     {
+        detail ??= "";
         _results.Add(new { name, ok, detail });
         if (!ok) _failed = true;
         Console.WriteLine($"{(ok ? "PASS" : "FAIL")}  {name}  {detail}");
@@ -66,10 +67,14 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         Directory.CreateDirectory(testDownloads);
         w.Settings.DownloadFolder = testDownloads;
         w.Settings.Commit();
+        // Nor does "start with Windows" ever touch Windows' real Run key, and the notification area's messages stay silent.
+        MainWindow.AutoStartKey = TestRunKey;
+        TrayIcon.SilentForTest = true;
         try { await RunStepsAsync(); }
         catch (Exception e) { Check("no crash", false, e.ToString()); }
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "selftest.json"), JsonSerializer.Serialize(_results, new JsonSerializerOptions { WriteIndented = true }));
+        try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"Software\VireoSelfTest", throwOnMissingSubKey: false); } catch { /* nothing to clean */ }
         Application.Current.Shutdown(_failed ? 1 : 0);
     }
 
@@ -143,6 +148,7 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         Check("a tab playing sound is left alone", music.Life == TabLife.Suspended && music.View is not null);
         Check("the others are freed", hidden.Skip(1).All(t => t.Life == TabLife.Discarded && t.View is null), string.Join(",", hidden.Skip(1).Select(t => t.Life)));
         music.IsPlayingAudio = false;
+        music.AudioStoppedAt = DateTime.MinValue; // a stand-in, not real music: no grace for having just played
         await Task.Delay(2500);
         var freed = w.MeasureMemory();
         Console.WriteLine($"MEMORY  all awake: {Mb(awake.Bytes)} ({awake.Processes} processes)  frozen: {Mb(frozen.Bytes)}  freed: {Mb(freed.Bytes)} ({freed.Processes} processes)");
@@ -188,6 +194,13 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         await Step("stress", RunStressStepsAsync);
         if (Only?.Contains("adtest") == true) await Step("adtest", RunAdTestStepsAsync);
         if (Only?.Contains("sites") == true) await Step("sites", RunSiteSurveyAsync);
+        if (Only?.Contains("freezes") == true) await Step("freezes", RunFreezeStepsAsync);
+        if (Only?.Contains("animations") == true) await Step("animations", RunAnimationStepsAsync);
+        if (Only?.Contains("showcase") == true) await Step("showcase", RunShowcaseStepsAsync);
+        await Step("youtubeads", RunYouTubeAdStepsAsync);
+        await Step("welcome", RunWelcomeStepsAsync);
+        await Step("manager", RunDownloadManagerStepsAsync);
+        await Step("settingslook", RunSettingsLookStepsAsync);
 
         // 8. Many tabs share the width
         for (var i = 0; i < 9; i++) await w.OpenTabAsync(null, activate: false);
@@ -201,7 +214,10 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         w.WindowState = WindowState.Normal;
         Check("window maximizes and restores", w.WindowState == WindowState.Normal);
 
-        // 10. Last: it kills the browser engine, which every other test would notice
+        // 10. It kills the browser engine, which every other test would notice
         await RunRecoveryStepsAsync();
+
+        // 11. Last of all: it closes the test's window (the browser goes, only the downloader stays, then the browser comes back).
+        await Step("background", RunBackgroundStepsAsync);
     }
 }

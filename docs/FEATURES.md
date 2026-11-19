@@ -19,11 +19,57 @@ timers shorten (10 s / 2 min) and Chromium's low-end mode is switched on. The me
 "See all tabs" (Ctrl+Shift+A) lists every tab with its state, and "Free memory now" does it at once.
 
 **A real download manager.** Downloads started by pages are taken over by Vireo's own engine
-(`src/Vireo/Downloads`): the file is split over several connections (8 by default), fast connections
+(`src/Vireo/Downloads`): the file is split over several connections (automatic by default: it starts with three and
+adds more, up to 16, only while that makes the download faster, and stops adding the moment a server says "too many";
+or a fixed number chosen in Settings), fast connections
 take over the tail of slow ones, everything is written into a pre-sized file, and progress is saved so a
 download survives a pause, a dropped connection or closing the browser. Queue, speed limit, naming,
 the page's cookies and Referer (so signed-in downloads work) and a progress bar that shows each
-connection's piece of the file.
+connection's piece of the file. Built not to drop in the middle: a connection that sends nothing for 30 seconds is cut and
+opened again from where it stopped; a connection that keeps failing hands its part to the others instead of ending the
+download; a host that answers "too many requests" gets fewer connections; tries that bring new bytes never count against
+the download; and while the computer is offline it waits (up to 30 minutes) for the internet to come back.
+
+**Downloads that outlive the browser.** Closing Vireo while downloads run asks what to do: keep downloading in the
+background, or stop them (they carry on from where they stopped next time). In the background the browser and its page
+engine close completely and only the downloader stays, with an icon in the notification area: about 40 MB of memory.
+Its tooltip shows the progress; a click opens a small window with every download (pause, resume, cancel, paste a new link)
+and "Open Vireo", which brings the browser back in the same process without interrupting anything. When everything is done
+it shows a notice and exits a minute later. Settings, Downloads, sets the answer for every time.
+
+**A download manager of its own.** Someone who chooses Vireo as their download manager (on the welcome page, or Settings,
+Download manager) gets what other download managers offer, without a second program:
+- The downloader keeps its icon in the notification area, also while the browser is open, and stays when the browser
+  closes. "Vireo Downloads" in the Start menu (`Vireo.exe --downloads`) opens only the downloader, with no browser and no
+  page engine: about 10 MB of memory once it has settled. It can start with Windows, quietly (one value in the current
+  user's Run key, listed as "Vireo Downloads" in Windows' Startup apps; uninstalling removes it).
+- A link to a file copied in another program brings a "Download this?" notification by the clock; one click downloads it.
+  Only a single web address to a file (by its extension; not pictures) or a file host's page is offered, each once.
+  What was copied is looked at on the computer only and never kept; copies made in Vireo, links with a password in them,
+  and anything a password manager marks as private are not read.
+- Each finished download is announced with a click to show it in its folder (in the browser: Open and Show in folder).
+- **Same link, same download:** adding the address of a download that is unfinished (paused, failed, or still running)
+  carries that one on, with any fresh sign-in cookies, instead of saving a second copy as "name (1)".
+- **Sorted into folders:** optionally, downloads go into Video, Music, Pictures, Documents, Programs and Compressed folders
+  inside the download folder. A folder chosen for one download is left as it is.
+- **Start at a time:** the Downloads panel's "Schedule…" starts every paused download (and those a file host's limit
+  stopped) in an hour, tonight at 1:00 or tomorrow at 8:00. It is kept across a restart; a time that passed while Vireo was
+  closed still counts within 12 hours, older ones are dropped rather than starting downloads out of the blue.
+- **When done:** the same menu can put the computer to sleep or shut it down once everything has
+  finished. It lasts for that one time only (never saved), waits for at least one download to end, and always shows a
+  one-minute warning with Cancel in front; a download starting again cancels it.
+- **Checksums:** a finished download's check button takes the SHA-256 (or SHA-1, MD5) a site publishes and says whether the
+  file matches; left empty, it shows the file's SHA-256.
+- **File hosts in words:** pixeldrain's documented refusals are read and explained ("pixeldrain's daily download limit for
+  free users is reached", "pixeldrain wants you to open this file on its page first"); a used-up limit is not retried in
+  a loop, while "too many connections at once" just means fewer connections. A pixeldrain share page (`/u/...`) pasted or
+  copied is downloaded from its direct address. Other hosts' "bandwidth limit exceeded" (509) and "too many requests"
+  (429) are said plainly too.
+
+**A welcome, once.** The first start opens a welcome page: what Vireo does, then three things to set up, each doing the
+real thing: bring bookmarks and history (it names the browsers it found), make Vireo the default browser (Windows' own page
+opens to confirm), and whether to use Vireo for downloads. People updating see it once too, as what is new. Only Vireo's
+own welcome document can press its buttons; a web page's message is ignored.
 
 **Saves video and audio from pages, natively.** Vireo watches what a page plays (`src/Vireo/Media`) and
 puts a **Download** button right on each video or audio player, with a menu of qualities. The toolbar
@@ -67,10 +113,22 @@ servers and the AdGuard DNS filter (ad, tracker and device-telemetry hosts) are 
 a small list of Vireo's own works with no download. Whole-host rules are kept as compact hashes (190,000 hosts in about
 5 MB). Every request is checked before it leaves and a refused one fails like a dead connection (so pages and ad scripts
 cannot tell it "got an answer"); leftover ad boxes are hidden by the names the page uses, and the shield shows what was
-stopped. On adblock.turtlecute.org Vireo blocks 115 of 130. The two it lets through are the "ads.js" / "pagead.js"
+stopped, counting each address once (a script retrying the same blocked address counts once, not thousands of times). Ad
+code that retries a refused address in a loop (one news site asked for the same ad configuration about 300 times a second)
+is refused more and more slowly after three tries, up to five seconds each, so the loop cannot load the page engine or
+make the window stop answering. On adblock.turtlecute.org Vireo blocks 115 of 130. The two it lets through are the "ads.js" / "pagead.js"
 script checks: those names are the bait sites use to detect blockers, and refusing them everywhere starts "turn off your
 ad blocker" walls. Video files and stream playlists are never refused, so players are not broken. Per-site and global
 switches; switch the community lists off for a much smaller footprint.
+
+**YouTube's own ads.** YouTube serves its ads from its own servers, so blocking addresses cannot stop them. Vireo does what
+Brave and uBlock Origin do (`src/Vireo/Assets/youtube.js`): the player's data loses its ad instructions before the player
+reads them (the data written into the page, and every answer fetched later), so there is nothing to play; ad boxes in the
+feed, banners and beside the video are hidden; and the "ad blockers are not allowed" box is removed. If an ad gets through
+anyway (YouTube changes often), it is skipped when it can be, or played muted at 16x speed, never by jumping to its end
+(an ad stitched into the video would take the real video with it). Ads removed count on the shield. Allowing ads on YouTube
+(the shield's switch for the site) takes the script away from the next page on. Embedded YouTube players on other sites
+are covered too.
 
 **Privacy.** Tracking tags (utm_, fbclid, gclid...) are removed from links. Optional HTTPS-only with a
 clear "this site isn't available securely" page. Tracking prevention level (Off / Basic / Balanced /
@@ -116,8 +174,8 @@ password store. "Clear browsing data" removes history, cookies, cache or passwor
 and background workers run as usual; Vireo draws each extension's button next to the address bar and opens its popup
 under it, sized to fit. Extensions from the web stores have to be downloaded as a file first.
 
-**Start page.** Your sites (pin your own with "Add site"; hover a tile to edit or remove it; the most-visited fill the
-rest), live download speed with a minute of history, what is downloading, what was blocked, and a box that downloads any
+**Start page.** Your sites, only the ones you put there with "Add site" (up to ten; hover a tile to edit or remove it;
+your history is never shown there), live download speed with a minute of history, what is downloading, what was blocked, and a box that downloads any
 pasted link (a stream, a video page or a file) at the best quality.
 
 **Players that hide their stream.** Players that fetch their playlist from a Web Worker (Twitch's and Kick's) are watched

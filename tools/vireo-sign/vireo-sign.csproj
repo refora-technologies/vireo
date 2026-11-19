@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Refora's rules key and signing Vireo's rules files (see Program.cs). A developer tool: never shipped with Vireo. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>vireo-sign</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.*" />
+    <!-- The same checks Vireo makes, from Vireo's own source, so what is signed here is what Vireo accepts. -->
+    <Compile Include="..\..\src\Vireo\Services\Minisign.cs" Link="Minisign.cs" />
+    <Compile Include="..\..\src\Vireo\Services\YouTubeRules.cs" Link="YouTubeRules.cs" />
+  </ItemGroup>
+
+</Project>

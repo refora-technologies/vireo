@@ -37,7 +37,10 @@ public sealed class Settings
     public bool ClearDataOnExit { get; set; }
 
     // Downloads
-    public int DownloadConnections { get; set; } = 8;
+    /// <summary>Connections per download; 0 is automatic (see AutoConnectionsUpTo).</summary>
+    public int DownloadConnections { get; set; }
+    /// <summary>The most an automatic download uses, when a server rewards more connections.</summary>
+    public const int AutoConnectionsUpTo = 16;
     public int MaxActiveDownloads { get; set; } = 3;
     /// <summary>Kilobytes per second shared by all downloads; 0 means no limit.</summary>
     public int SpeedLimitKBps { get; set; }
@@ -45,8 +48,31 @@ public sealed class Settings
     /// <summary>Where a private window's downloads go: "" until asked (at the first private download), "same" for
     /// <see cref="DownloadFolder"/>, or a folder of its own. Only the place is kept, never what was saved there.</summary>
     public string PrivateDownloadFolder { get; set; } = "";
+    /// <summary>Closing Vireo while downloads run: "ask", "background" (keep downloading, browser closed) or "stop".</summary>
+    public string CloseWithDownloads { get; set; } = "ask";
     /// <summary>Download new versions in the background and install them when Vireo closes.</summary>
     public bool AutoUpdate { get; set; } = true;
+
+    // Download manager
+    /// <summary>
+    /// The person uses Vireo as their download manager: the downloader keeps its icon in the notification area, stays when
+    /// the browser closes, and says when downloads finish. (Starting with Windows is Windows' own Run entry, see AutoStart.)
+    /// </summary>
+    public bool DownloadManager { get; set; }
+    /// <summary>Offer to download a link to a file copied in another program. Read on this computer only, never kept.</summary>
+    public bool WatchClipboard { get; set; }
+    /// <summary>Put downloads in Video, Music, Documents, ... folders inside the download folder.</summary>
+    public bool SortByType { get; set; }
+    /// <summary>When paused downloads start by themselves (see Schedule); null when nothing is scheduled.</summary>
+    public DateTime? ScheduledStart { get; set; }
+    /// <summary>The "Vireo Downloads stays here" message has been shown once.</summary>
+    public bool TrayHintShown { get; set; }
+
+    // Welcome
+    /// <summary>The welcome this person has seen (0: none yet); a new welcome for an update raises the number.</summary>
+    public int WelcomeSeen { get; set; }
+    /// <summary>No settings file existed: this is a first start (not someone updating).</summary>
+    [JsonIgnore] public bool IsNew { get; private set; }
 
     // Buttons drawn on videos and audio in pages
     public bool ShowDownloadButtons { get; set; } = true;
@@ -102,8 +128,10 @@ public sealed class Settings
     {
         var path = System.IO.Path.Combine(folder, "settings.json");
         Settings s;
-        try { s = File.Exists(path) ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json) ?? new() : new(); }
+        var existed = File.Exists(path);
+        try { s = existed ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Json) ?? new() : new(); }
         catch { s = new(); } // a damaged file must never stop the browser from starting
+        s.IsNew = !existed;
         s.Path = path;
         if (s.Version < 2)
         {
@@ -111,10 +139,16 @@ public sealed class Settings
             s.SearchTemplate = UrlInput.DefaultSearch;
             s.Version = 2;
         }
+        if (s.Version < 3)
+        {
+            // Automatic connections arrived: 8 was the old default, so whoever still has it gets the new default.
+            if (s.DownloadConnections == 8) s.DownloadConnections = 0;
+            s.Version = 3;
+        }
         if (!s.SearchTemplate.Contains("{0}")) s.SearchTemplate = UrlInput.DefaultSearch;
         if (string.IsNullOrWhiteSpace(s.DownloadFolder))
             s.DownloadFolder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        s.DownloadConnections = Math.Clamp(s.DownloadConnections, 1, 32);
+        s.DownloadConnections = Math.Clamp(s.DownloadConnections, 0, 32);
         s.MaxActiveDownloads = Math.Clamp(s.MaxActiveDownloads, 1, 10);
         return s;
     }

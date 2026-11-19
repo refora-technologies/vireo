@@ -159,7 +159,7 @@ public static class InlinePlaylists
 
         private static Task<HttpResponseMessage> Inline(HttpRequestMessage request)
         {
-            var id = System.IO.Path.GetFileNameWithoutExtension(request.RequestUri.AbsolutePath);
+            var id = System.IO.Path.GetFileNameWithoutExtension(request.RequestUri?.AbsolutePath ?? "");
             if (!Entries.TryGetValue(id, out var entry)) return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) { RequestMessage = request });
             var type = entry.Kind == MediaKind.Hls ? "application/vnd.apple.mpegurl" : "application/dash+xml";
             var res = new HttpResponseMessage(HttpStatusCode.OK) { RequestMessage = request, Content = new StringContent(entry.Text, Encoding.UTF8, type) };

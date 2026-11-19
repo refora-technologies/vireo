@@ -27,7 +27,7 @@
     <Color x:Key="KnobOnColor">#04241D</Color>
 
     <!-- A private window's frame: the same, in violet. -->
-    <DrawingBrush x:Key="PrivateFrameBrush" Stretch="Fill">
+    <DrawingBrush x:Key="PrivateFrameBrush" Stretch="Fill" RenderOptions.CachingHint="Cache" RenderOptions.CacheInvalidationThresholdMinimum="0.5" RenderOptions.CacheInvalidationThresholdMaximum="2">
         <DrawingBrush.Drawing>
             <DrawingGroup>
                 <GeometryDrawing Geometry="M0,0 H100 V100 H0 Z" Brush="#13111A"/>
@@ -44,7 +44,8 @@
     </DrawingBrush>
 
     <!-- The frame: deep green-black with two soft pools of colour, top-left and bottom-right. -->
-    <DrawingBrush x:Key="FrameBrush" Stretch="Fill">
+    <!-- Drawn once and reused: without the caching hint WPF redraws this whole-window gradient on every frame of every animation. -->
+    <DrawingBrush x:Key="FrameBrush" Stretch="Fill" RenderOptions.CachingHint="Cache" RenderOptions.CacheInvalidationThresholdMinimum="0.5" RenderOptions.CacheInvalidationThresholdMaximum="2">
         <DrawingBrush.Drawing>
             <DrawingGroup>
                 <GeometryDrawing Geometry="M0,0 H100 V100 H0 Z" Brush="#0F1716"/>
@@ -86,11 +87,22 @@
     <SolidColorBrush x:Key="Danger" Color="{StaticResource DangerColor}"/>
     <SolidColorBrush x:Key="Hover" Color="{StaticResource HoverColor}"/>
 
-    <!-- Type: Plus Jakarta Sans throughout. Its figures are set tabular (Typography.NumeralAlignment on the windows), so
-         speeds and sizes that change never jiggle; "MonoFont" is the same face, kept as a name for figures. -->
+    <!-- Type: Plus Jakarta Sans throughout. "MonoFont" is the same face, the name used for figures (speeds, sizes, counts,
+         times). Only figures get tabular digits (see the TextBlock style below), so changing numbers never jiggle. It used to be
+         set on the whole window, which made WPF shape every piece of text the slow way and drawing about four times slower. The
+         fallback after the comma only gives MonoFont a name of its own (the first face is always found). -->
     <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
     <FontFamily x:Key="UiFont">pack://application:,,,/Fonts/#Plus Jakarta Sans</FontFamily>
-    <FontFamily x:Key="MonoFont">pack://application:,,,/Fonts/#Plus Jakarta Sans</FontFamily>
+    <FontFamily x:Key="MonoFont">pack://application:,,,/Fonts/#Plus Jakarta Sans, Segoe UI</FontFamily>
+
+    <!-- Figures (text set in MonoFont) get tabular digits; all other text is drawn without the OpenType feature. -->
+    <Style TargetType="TextBlock">
+        <Style.Triggers>
+            <Trigger Property="FontFamily" Value="{StaticResource MonoFont}">
+                <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
 
     <!-- Toolbar and panel icon button: a soft square that lights on hover. -->
     <Style x:Key="IconButton" TargetType="Button">
@@ -248,32 +260,26 @@
     <DrawingImage x:Key="AppMark">
         <DrawingImage.Drawing>
             <DrawingGroup>
-                <GeometryDrawing Geometry="M17,2 H47 A15,15 0 0 1 62,17 V47 A15,15 0 0 1 47,62 H17 A15,15 0 0 1 2,47 V17 A15,15 0 0 1 17,2 Z">
+                <!-- Same drawing as Assets/vireo-mark.svg: a round teal badge with the bird in Vireo's dark ink. -->
+                <GeometryDrawing>
+                    <GeometryDrawing.Geometry><EllipseGeometry Center="32,32" RadiusX="30.5" RadiusY="30.5"/></GeometryDrawing.Geometry>
                     <GeometryDrawing.Brush>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#1D4A40" Offset="0"/>
-                            <GradientStop Color="#0E1F1C" Offset="1"/>
+                            <GradientStop Color="#6FF0D2" Offset="0"/>
+                            <GradientStop Color="#23B894" Offset="1"/>
                         </LinearGradientBrush>
                     </GeometryDrawing.Brush>
-                    <GeometryDrawing.Pen><Pen Brush="#1AFFFFFF" Thickness="1"/></GeometryDrawing.Pen>
                 </GeometryDrawing>
                 <DrawingGroup>
                     <DrawingGroup.Transform>
                         <TransformGroup>
                             <TranslateTransform X="-30.25" Y="-30"/>
-                            <ScaleTransform ScaleX="0.82" ScaleY="0.82"/>
+                            <ScaleTransform ScaleX="0.84" ScaleY="0.84"/>
                             <TranslateTransform X="32" Y="32"/>
                         </TransformGroup>
                     </DrawingGroup.Transform>
-                    <GeometryDrawing Geometry="{StaticResource BirdBody}">
-                        <GeometryDrawing.Brush>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="#6FF0D2" Offset="0"/>
-                                <GradientStop Color="#2CC7A6" Offset="1"/>
-                            </LinearGradientBrush>
-                        </GeometryDrawing.Brush>
-                    </GeometryDrawing>
-                    <GeometryDrawing Geometry="{StaticResource BirdWing}" Brush="#13302A"/>
+                    <GeometryDrawing Geometry="{StaticResource BirdBody}" Brush="#04241D"/>
+                    <GeometryDrawing Geometry="{StaticResource BirdWing}" Brush="#3DDBB9"/>
                 </DrawingGroup>
                 <!-- keeps the drawing's frame 64×64, so it lines up exactly with the icon files -->
                 <GeometryDrawing Geometry="M0,0 M64,64" Brush="Transparent"/>

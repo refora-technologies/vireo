@@ -33,9 +33,11 @@ public sealed class DownloadItem
 
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public string Url { get; init; } = "";
-    public string? Referer { get; init; }
-    public string? UserAgent { get; init; }
-    public string? Cookie { get; init; }
+    public string? Referer { get; set; }
+    public string? UserAgent { get; set; }
+    public string? Cookie { get; set; }
+    /// <summary>Still to be moved into the folder for its kind once its name is known (sorting by type is on).</summary>
+    public bool SortPending { get; set; }
     public string Folder { get; set; } = "";
     public string FileName { get; set; } = "";
     public string? ETag { get; set; }
@@ -66,6 +68,8 @@ public sealed class DownloadItem
     /// <summary>A line shown under the name while something special is going on ("Recording 02:13", "Joining video and audio…").</summary>
     public string? Note { get; set; }
     internal volatile bool FinishRequested;
+    /// <summary>A server answered "too many connections" during this go: automatic connections add no more.</summary>
+    internal volatile bool ToldTooMany;
     public int StreamStage { get; set; }
     public int Done0 { get; set; }
     public long Bytes0 { get; set; }

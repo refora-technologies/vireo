@@ -39,7 +39,7 @@ feature), the local test server and the installer.
 
 ## Pull requests
 
-1. Work on a branch of your own, named for what it does (`fix/tab-drag-flicker`, `website/home-page`).
+1. Work on a branch of your own, named for what it does (`fix/tab-drag-flicker`, `feature/reading-list`).
 2. Keep a pull request to one change, and say in its description what it changes and why, and how you checked it.
 3. The unit tests must pass; for anything you can see or click, run the self-test steps it touches and include a
    screenshot.
@@ -53,8 +53,9 @@ feature), the local test server and the installer.
 
 ## The website
 
-The website lives in [`website/`](website/) and is published to GitHub Pages when a change to it is merged into `main`.
-Its pull requests follow the same rules.
+The website (https://vireo.reforatech.com) is kept apart from this repository and published by Netlify. Two things in here
+belong to it: `scripts/check-site.mjs` and `scripts/shoot-site.mjs`, which check and screenshot it, and the master copy of
+the signed rules files it publishes (`src/Vireo/Assets/rules/`).
 
 ## Code of conduct
 

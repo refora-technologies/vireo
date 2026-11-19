@@ -16,7 +16,12 @@ public sealed class Sandbox : IDisposable
     public Sandbox() => Directory.CreateDirectory(Files);
 
     public DownloadEngine Engine(int connections = 6, int maxActive = 3, int limitKBps = 0) =>
-        new(State, new DownloadOptions { Connections = connections, MaxActive = maxActive, SpeedLimitKBps = limitKBps, Folder = Files });
+        new(State, new DownloadOptions
+        {
+            Connections = connections, MaxActive = maxActive, SpeedLimitKBps = limitKBps, Folder = Files,
+            // Short, so tests that wait out a silent connection or an outage take seconds, not minutes.
+            StallTimeout = TimeSpan.FromSeconds(3), MaxRetryDelay = TimeSpan.FromSeconds(1),
+        });
 
     public void Dispose()
     {

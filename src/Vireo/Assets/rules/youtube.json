@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "name": "youtube",
+  "version": 1,
+  "published": "2026-11-19",
+  "playerDataKeys": ["adPlacements", "adSlots", "playerAds", "adBreakHeartbeatParams", "adBreakParams"],
+  "messageKeys": ["enforcementMessageViewModel"],
+  "hide": [
+    "ytd-ad-slot-renderer", "ytd-in-feed-ad-layout-renderer", "ytd-promoted-sparkles-web-renderer", "ytd-promoted-video-renderer",
+    "ytd-display-ad-renderer", "ytd-banner-promo-renderer", "ytd-statement-banner-renderer", "ytd-video-masthead-ad-v3-renderer",
+    "ytd-primetime-promo-renderer", "ytd-companion-slot-renderer", "ytd-action-companion-ad-renderer", "ytd-player-legacy-desktop-watch-ads-renderer",
+    "#masthead-ad", "#player-ads", ".ytp-ad-overlay-container", ".ytp-ad-image-overlay", ".ytp-featured-product", "ytd-merch-shelf-renderer",
+    "ytd-rich-item-renderer:has(ytd-ad-slot-renderer)", "ytd-rich-section-renderer:has(ytd-statement-banner-renderer)",
+    "ytm-promoted-sparkles-web-renderer", "ytm-companion-ad-renderer", "ad-slot-renderer", "ytd-enforcement-message-view-model"
+  ],
+  "player": ".html5-video-player",
+  "adPlayerClasses": ["ad-showing", "ad-interrupting"],
+  "skipButtons": [".ytp-skip-ad-button", ".ytp-ad-skip-button", ".ytp-ad-skip-button-modern"],
+  "enforcement": "ytd-enforcement-message-view-model",
+  "enforcementDialog": "tp-yt-paper-dialog",
+  "enforcementBackdrop": "tp-yt-iron-overlay-backdrop"
+}

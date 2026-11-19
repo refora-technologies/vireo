@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>YouTube-like playback - Media Lab test</title></head>
+<body style="background:#0f0f0f;color:#fff;font-family:sans-serif">
+<h1>YouTube-like playback test</h1>
+<p>Counts what a player would react to when its tab is hidden, and shows the "Continue watching?" box.</p>
+<script>
+  window.__seen = { hiddenEvents: 0, confirmed: 0 };
+  document.addEventListener('visibilitychange', () => window.__seen.hiddenEvents++);
+</script>
+<video id="video" src="/clip.mp4" playsinline loop muted></video>
+<yt-confirm-dialog-renderer id="dialog" style="display:block">
+  <div>Video paused. Continue watching?</div>
+  <div id="confirm-button"><button onclick="window.__seen.confirmed++; this.closest('#dialog').remove()">Yes</button></div>
+</yt-confirm-dialog-renderer>
+</body></html>

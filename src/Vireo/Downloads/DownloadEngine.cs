@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.ExceptionServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32.SafeHandles;
@@ -15,11 +16,51 @@ public sealed class DownloadOptions
     public int MaxActive { get; set; } = 3;
     public int SpeedLimitKBps { get; set; }
     public string Folder { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+    /// <summary>A connection that delivers nothing for this long (no answer, or no bytes) is cut and opened again.</summary>
+    public TimeSpan StallTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    /// <summary>The longest wait between tries when the server or the network is in trouble.</summary>
+    public TimeSpan MaxRetryDelay { get; set; } = TimeSpan.FromSeconds(60);
+    /// <summary>Tries in a row that bring no new bytes before a download is given up (progress resets the count).</summary>
+    public int MaxReconnects { get; set; } = 8;
+    /// <summary>How long a download waits for the computer to be back online before giving up.</summary>
+    public TimeSpan MaxOfflineWait { get; set; } = TimeSpan.FromMinutes(30);
+    /// <summary>Put each download in a folder for its kind (Video, Music, ...) inside <see cref="Folder"/>.</summary>
+    public bool SortByType { get; set; }
+    /// <summary>
+    /// Automatic connections: a download starts with a few and adds more only while that makes it faster, up to
+    /// <see cref="Connections"/>, and stops adding the moment the server objects. Off: always <see cref="Connections"/>.
+    /// </summary>
+    public bool AutoConnections { get; set; }
+    /// <summary>How many connections an automatic download starts with.</summary>
+    public int AutoStartConnections { get; set; } = 3;
+    /// <summary>How long an automatic download watches its speed before deciding to add connections.</summary>
+    public TimeSpan AutoGrowEvery { get; set; } = TimeSpan.FromSeconds(1.5);
 }
 
-public sealed class DownloadHttpException(HttpStatusCode status) : Exception($"Server answered {(int)status}")
+public sealed class DownloadHttpException(HttpStatusCode status, string? host = null, string? reason = null) : Exception($"Server answered {(int)status}")
 {
     public HttpStatusCode Status { get; } = status;
+    /// <summary>The server that refused, for a message in words ("pixeldrain's daily limit is reached").</summary>
+    public string? Host { get; } = host;
+    /// <summary>The code a file host put in its answer ("transfer_limit_exceeded"), if any.</summary>
+    public string? Reason { get; } = reason;
+    public HostRefusal Refusal => FileHosts.Classify(Host ?? "", Status, Reason);
+
+    /// <summary>Worth trying again soon: the server is busy or wants fewer connections; not when a limit is used up.</summary>
+    public bool Retryable => Refusal == HostRefusal.TooManyConnections
+        || (Refusal == HostRefusal.None && (Status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)Status >= 500));
+}
+
+/// <summary>A connection that went quiet: no answer, or no new bytes, for the stall timeout. Always worth another try.</summary>
+public sealed class ConnectionStalledException(TimeSpan after) : TimeoutException($"The connection sent nothing for {after.TotalSeconds:0} s.");
+
+/// <summary>The connections ran out before the whole file arrived (the server kept cutting them). Worth another try.</summary>
+public sealed class DownloadIncompleteException(string message, Exception? inner = null) : Exception(message, inner);
+
+/// <summary>Writing to the file failed: the disk, not the network. Never retried.</summary>
+public sealed class DiskWriteException : IOException
+{
+    public DiskWriteException(Exception inner) : base(inner.Message, inner) => HResult = inner.HResult;
 }
 
 /// <summary>
@@ -79,23 +120,69 @@ public sealed partial class DownloadEngine : IDisposable
     /// <summary>Picks the folder for a download that names none (a private window asks where its downloads go); null = the usual one.</summary>
     public Func<string?>? ChooseFolder { get; set; }
 
-    public DownloadItem Add(DownloadRequest request)
+    public DownloadItem Add(DownloadRequest request) => Add(request, out _);
+
+    /// <summary>
+    /// Adds a download. The same address that already has an unfinished download carries that one on instead of starting a
+    /// second copy ("film (1).mkv"): <paramref name="continued"/> says so.
+    /// </summary>
+    public DownloadItem Add(DownloadRequest request, out bool continued)
     {
+        if (Unfinished(request) is { } same)
+        {
+            continued = true;
+            // A fresh visit to the page brings fresh sign-in cookies: the old ones may be what made it fail.
+            if (request.Cookie is not null) same.Cookie = request.Cookie;
+            if (request.Referer is not null) same.Referer = request.Referer;
+            if (request.UserAgent is not null) same.UserAgent = request.UserAgent;
+            if (same.State is DownloadState.Paused or DownloadState.Failed) Resume(same);
+            return same;
+        }
+        continued = false;
         var folder = string.IsNullOrWhiteSpace(request.Folder) ? ChooseFolder?.Invoke() ?? Options.Folder : request.Folder;
         Directory.CreateDirectory(folder);
         var item = new DownloadItem
         {
             Url = request.Url, Referer = request.Referer, UserAgent = request.UserAgent, Cookie = request.Cookie,
             Folder = folder, Connections = Options.Connections,
+            // Only downloads going to the usual place are sorted: a folder someone picked is where they want it.
+            SortPending = Options.SortByType && string.IsNullOrWhiteSpace(request.Folder),
         };
         item.Stream = request.Stream;
         item.Pair = request.Pair;
-        if (!string.IsNullOrWhiteSpace(request.FileName)) item.FileName = Reserve(folder, FileNaming.Sanitize(request.FileName));
+        if (!string.IsNullOrWhiteSpace(request.FileName)) Name(item, FileNaming.Sanitize(request.FileName));
         lock (_gate) _items.Insert(0, item);
         Save(item);
         ItemAdded?.Invoke(item);
         Pump();
         return item;
+    }
+
+    /// <summary>An unfinished download of the same address (to the same place, if one was asked for).</summary>
+    private DownloadItem? Unfinished(DownloadRequest r)
+    {
+        if (r.Stream is not null || r.Pair is not null) return null; // a video from a page is chosen in its own panel
+        lock (_gate)
+            return _items.FirstOrDefault(i => i.Parent is null && i.Stream is null && i.Pair is null
+                && i.State is not (DownloadState.Completed or DownloadState.Cancelled)
+                && string.Equals(i.Url, r.Url, StringComparison.Ordinal)
+                && (string.IsNullOrWhiteSpace(r.Folder) || string.Equals(Path.GetFullPath(i.Folder).TrimEnd('\\'), Path.GetFullPath(r.Folder).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>Gives a download its file name, first moving it into the folder for its kind when sorting is on.</summary>
+    private void Name(DownloadItem item, string proposed)
+    {
+        if (item.SortPending)
+        {
+            item.SortPending = false;
+            if (FileTypes.KindOf(proposed) is { } kind)
+            {
+                var sorted = Path.Combine(item.Folder, kind);
+                try { Directory.CreateDirectory(sorted); item.Folder = sorted; }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { /* stays in the download folder */ }
+            }
+        }
+        item.FileName = Reserve(item.Folder, proposed);
     }
 
     public void Pause(DownloadItem item)
@@ -202,14 +289,14 @@ public sealed partial class DownloadEngine : IDisposable
         ItemChanged?.Invoke(item);
     }
 
-    /// <summary>How many times a dropped connection is retried before the download is given up as failed.</summary>
-    private const int MaxReconnects = 3;
     private const string ReconnectNote = "Reconnecting";
 
     private async Task RunAsync(DownloadItem item, CancellationToken ct)
     {
         try
         {
+            var before = item.Downloaded;
+            var offlineSince = (DateTime?)null;
             while (true)
             {
                 try
@@ -224,14 +311,19 @@ public sealed partial class DownloadEngine : IDisposable
                     Stopped(item);
                     return;
                 }
-                catch (Exception e) when (item.Stop == StopReason.None && IsTransient(e) && item.RetryAttempts < MaxReconnects)
+                catch (Exception e) when (item.Stop == StopReason.None && IsTransient(e) && ShouldTryAgain(item, e, ref before, ref offlineSince))
                 {
                     lock (item.Lock) item.ActiveConnections = 0;
-                    item.RetryAttempts++;
                     item.Speed = 0;
-                    item.Note = $"{ReconnectNote} (attempt {item.RetryAttempts}/{MaxReconnects})…";
-                    Changed(item, save: false);
-                    try { await Task.Delay(TimeSpan.FromSeconds(Math.Min(10, Math.Pow(2, item.RetryAttempts))), ct); }
+                    // A server that says "too many" or "busy" gets fewer connections from now on (a free file host may allow only
+                    // a few at once); Vireo would rather finish slowly than be shut out.
+                    if (WantsFewerConnections(e) || WantsFewerConnections(e.InnerException))
+                        item.Connections = Math.Max(1, item.Connections / 2);
+                    var offline = offlineSince is not null;
+                    item.Note = offline ? $"{ReconnectNote}: waiting for the internet…" : $"{ReconnectNote} (try {item.RetryAttempts} of {Options.MaxReconnects})…";
+                    Changed(item, save: true);
+                    var wait = offline ? TimeSpan.FromSeconds(5) : RetryDelay(item.RetryAttempts);
+                    try { await Task.Delay(wait, ct); }
                     catch (OperationCanceledException) when (item.Stop != StopReason.None)
                     {
                         // Paused or cancelled while waiting to try again.
@@ -273,6 +365,9 @@ public sealed partial class DownloadEngine : IDisposable
         Finish(item);
     }
 
+    private static bool WantsFewerConnections(Exception? e) =>
+        e is DownloadHttpException { Status: HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable } or DownloadHttpException { Refusal: HostRefusal.TooManyConnections };
+
     /// <summary>The person paused or cancelled it.</summary>
     private void Stopped(DownloadItem item)
     {
@@ -304,7 +399,13 @@ public sealed partial class DownloadEngine : IDisposable
     {
         using var req = NewRequest(item);
         req.Headers.Range = new RangeHeaderValue(0, 0);
-        using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        // A server that never answers is asked again later, not waited for for ever.
+        using var answer = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        answer.CancelAfter(Options.StallTimeout);
+        HttpResponseMessage sent;
+        try { sent = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, answer.Token); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { throw new ConnectionStalledException(Options.StallTimeout); }
+        using var res = sent;
 
         long total;
         bool canResume;
@@ -318,13 +419,13 @@ public sealed partial class DownloadEngine : IDisposable
             total = res.Content.Headers.ContentLength ?? -1;
             canResume = false; // the server ignored the range: one connection only
         }
-        else throw new DownloadHttpException(res.StatusCode);
+        else throw await RefusedAsync(res, ct);
 
         var etag = res.Headers.ETag?.Tag;
         if (string.IsNullOrEmpty(item.FileName))
         {
             var proposed = FileNaming.Sanitize(FileNaming.FromDisposition(res.Content.Headers.ContentDisposition) ?? FileNaming.FromUrl(res.RequestMessage?.RequestUri?.ToString() ?? item.Url), res.Content.Headers.ContentType?.MediaType);
-            item.FileName = Reserve(item.Folder, proposed);
+            Name(item, proposed);
         }
 
         // A half-finished file is only good if it is still the same file on the server.
@@ -361,31 +462,105 @@ public sealed partial class DownloadEngine : IDisposable
         }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        Exception? fatal = null;
-        var tasks = Enumerable.Range(0, Math.Max(1, item.Connections)).Select(_ => Task.Run(async () =>
+        Exception? fatal = null, lastTrouble = null;
+        var refused = 0; // a connection was told "too many": no more are added
+        async Task Connection()
         {
+            Segment? seg = null;
             try
             {
                 while (!linked.IsCancellationRequested)
                 {
-                    var seg = item.TakeSegment(MinSplit);
+                    seg = item.TakeSegment(MinSplit);
                     if (seg is null) return;
                     await FetchSegmentAsync(item, seg, file, linked.Token);
+                    seg = null;
                 }
             }
             catch (Exception e) when (!(e is OperationCanceledException && linked.IsCancellationRequested))
             {
+                if (IsConnectionTrouble(e))
+                {
+                    // This connection kept failing: it hands its part back and stops. The others carry on and take that part
+                    // over, so one bad connection (or a server that allows fewer of them) never ends the whole download.
+                    Interlocked.Exchange(ref lastTrouble, e);
+                    if (WantsFewerConnections(e)) Interlocked.Exchange(ref refused, 1);
+                    if (seg is not null) lock (item.Lock) seg.Active = false;
+                    return;
+                }
+                // The file is gone, the server refuses it, or the disk is full: every connection stops.
                 Interlocked.CompareExchange(ref fatal, e, null);
                 linked.Cancel();
             }
-        }, CancellationToken.None)).ToArray();
-        await Task.WhenAll(tasks);
+        }
+
+        var cap = Math.Max(1, item.Connections);
+        var auto = Options.AutoConnections && cap > 1;
+        var tasks = new List<Task>();
+        void Open(int count) { lock (tasks) for (var i = 0; i < count; i++) tasks.Add(Task.Run(Connection, CancellationToken.None)); }
+        item.ToldTooMany = false;
+        Open(auto ? Math.Min(cap, Math.Max(1, Options.AutoStartConnections)) : cap);
+        if (auto) lock (tasks) tasks.Add(GrowAsync());
+        // Connections may be added while these run: wait until every one, old and new, has ended.
+        while (true)
+        {
+            Task[] now;
+            lock (tasks) now = [.. tasks];
+            await Task.WhenAll(now);
+            lock (tasks) if (tasks.Count == now.Length) break;
+        }
+
+        // Automatic connections: after each step, more are added only if the last ones made the download faster. A server
+        // that is already giving all it has, or that limits connections, keeps the download at the number that works.
+        async Task GrowAsync()
+        {
+            var before = item.Downloaded;
+            double best = 0;
+            var flat = 0;
+            while (!linked.IsCancellationRequested)
+            {
+                try { await Task.Delay(Options.AutoGrowEvery, linked.Token); }
+                catch (OperationCanceledException) { return; }
+                var done = item.Downloaded;
+                var speed = (done - before) / Options.AutoGrowEvery.TotalSeconds;
+                before = done;
+                int open;
+                long left;
+                lock (tasks) open = tasks.Count(t => !t.IsCompleted) - 1; // not counting this one
+                lock (item.Lock) left = item.Segments.Sum(x => x.Remaining);
+                if (open <= 0 || Volatile.Read(ref refused) == 1 || item.ToldTooMany) return; // finished, or the server said "too many"
+                if (open >= cap || left < 4 * MinSplit) return; // all allowed, or too little left to share
+                if (best > 0 && speed < best * 1.1)
+                {
+                    if (++flat >= 2) return; // two steps without a real gain: this is as fast as it gets
+                    continue;
+                }
+                flat = 0;
+                best = Math.Max(best, speed);
+                Open(Math.Min(2, cap - open));
+            }
+        }
 
         ct.ThrowIfCancellationRequested();
         if (fatal is not null) ExceptionDispatchInfo.Capture(fatal).Throw();
         lock (item.Lock)
-            if (item.Segments.Any(s => s.Remaining > 0)) throw new IOException("The download ended before the whole file arrived.");
+            if (item.Segments.Any(s => s.Remaining > 0))
+                throw new DownloadIncompleteException("The connections kept dropping before the whole file arrived.", lastTrouble);
     }
+
+    /// <summary>
+    /// Trouble with the connection rather than with the file: it is worth trying again. A timeout (our own watchdog, or the
+    /// connection's), a dropped or refused connection, a server that is busy (408, 429, 5xx). Not: the disk, or a refusal.
+    /// </summary>
+    private static bool IsConnectionTrouble(Exception e) => e switch
+    {
+        DiskWriteException => false,
+        DownloadHttpException d => d.Retryable,
+        OperationCanceledException or TimeoutException or HttpRequestException or HttpIOException or System.Net.Sockets.SocketException => true,
+        DownloadIncompleteException => true,
+        IOException => true, // from the network stream (writes to the file are DiskWriteException)
+        _ => e.InnerException is { } inner && IsConnectionTrouble(inner),
+    };
 
     private static void Plan(DownloadItem item)
     {
@@ -414,20 +589,25 @@ public sealed partial class DownloadEngine : IDisposable
             ct.ThrowIfCancellationRequested();
             var progressed = false;
             lock (item.Lock) item.ActiveConnections++;
+            // This connection's own watchdog: no answer, or no new bytes, for the stall timeout cuts it (and only it), and it is
+            // opened again from where it stopped. A server can leave a connection open and silent for ever; without this, that
+            // part of the file would never finish.
+            using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            attempt.CancelAfter(Options.StallTimeout);
             try
             {
                 using var req = NewRequest(item);
                 req.Headers.Range = new RangeHeaderValue(start, end);
                 if (item.ETag is not null && !item.ETag.StartsWith("W/")) req.Headers.TryAddWithoutValidation("If-Range", item.ETag);
-                using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+                using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, attempt.Token);
                 if (res.StatusCode != HttpStatusCode.PartialContent)
                 {
                     if (res.IsSuccessStatusCode) throw new IOException("The server stopped allowing partial downloads.");
-                    throw new DownloadHttpException(res.StatusCode);
+                    throw await RefusedAsync(res, attempt.Token);
                 }
                 if (res.Content.Headers.ContentRange?.From is { } from && from != start) throw new IOException("The server sent a different part than asked for.");
 
-                await using var stream = await res.Content.ReadAsStreamAsync(ct);
+                await using var stream = await res.Content.ReadAsStreamAsync(attempt.Token);
                 while (true)
                 {
                     int want;
@@ -436,8 +616,11 @@ public sealed partial class DownloadEngine : IDisposable
                         if (seg.Remaining <= 0) break; // another connection took the rest
                         want = (int)Math.Min(buffer.Length, seg.Remaining);
                     }
-                    var read = await stream.ReadAsync(buffer.AsMemory(0, want), ct);
+                    attempt.CancelAfter(Options.StallTimeout); // still alive: the watchdog waits again
+                    var read = await stream.ReadAsync(buffer.AsMemory(0, want), attempt.Token);
                     if (read == 0) break;
+                    // Waiting for the speed limit is not the connection going quiet.
+                    attempt.CancelAfter(Timeout.InfiniteTimeSpan);
                     await _limiter.WaitAsync(read, ct);
 
                     int take;
@@ -448,19 +631,25 @@ public sealed partial class DownloadEngine : IDisposable
                         at = seg.Done;
                     }
                     if (take <= 0) break;
-                    await RandomAccess.WriteAsync(file, buffer.AsMemory(0, take), at, ct);
+                    try { await RandomAccess.WriteAsync(file, buffer.AsMemory(0, take), at, ct); }
+                    catch (Exception w) when (w is IOException or UnauthorizedAccessException) { throw new DiskWriteException(w); }
                     lock (item.Lock) seg.Done += take;
                     Interlocked.Add(ref item.WindowBytes, take);
                     if (item.Parent is { } owner) { Interlocked.Add(ref owner.WindowBytes, take); Interlocked.Add(ref owner.StreamBytes, take); }
                     progressed = true;
                 }
+                lock (item.Lock)
+                    if (seg.Remaining > 0 && seg.Done < end + 1 && !progressed) throw new IOException("The server ended the answer early.");
             }
-            catch (OperationCanceledException) { throw; }
-            catch (DownloadHttpException e) when (!Retryable(e.Status)) { throw; }
-            catch (Exception e) when (e is HttpRequestException or IOException or DownloadHttpException or TimeoutException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; } // paused, cancelled, or another part failed for good
+            catch (DiskWriteException) { throw; }
+            catch (DownloadHttpException e) when (!e.Retryable) { throw; }
+            catch (Exception e) when (IsConnectionTrouble(e))
             {
+                if (WantsFewerConnections(e)) item.ToldTooMany = true; // automatic connections stop adding at once
                 if (progressed) failures = 0;
-                if (++failures > MaxFailures) throw;
+                if (++failures > MaxFailures)
+                    throw e is OperationCanceledException ? new ConnectionStalledException(Options.StallTimeout) : e;
                 await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(8000, 400 * Math.Pow(2, failures - 1))), ct);
             }
             finally
@@ -478,20 +667,25 @@ public sealed partial class DownloadEngine : IDisposable
         {
             Interlocked.Exchange(ref item.StreamBytes, 0);
             lock (item.Lock) { item.Segments.Clear(); item.ActiveConnections = 1; }
+            using var watch = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            watch.CancelAfter(Options.StallTimeout);
             try
             {
                 using var req = NewRequest(item);
-                using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
-                if (!res.IsSuccessStatusCode) throw new DownloadHttpException(res.StatusCode);
+                using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, watch.Token);
+                if (!res.IsSuccessStatusCode) throw await RefusedAsync(res, watch.Token);
                 if (item.Total < 0) item.Total = res.Content.Headers.ContentLength ?? -1;
-                await using var stream = await res.Content.ReadAsStreamAsync(ct);
+                await using var stream = await res.Content.ReadAsStreamAsync(watch.Token);
                 long at = 0;
                 while (true)
                 {
-                    var read = await stream.ReadAsync(buffer, ct);
+                    watch.CancelAfter(Options.StallTimeout); // a connection that goes quiet is cut and tried again
+                    var read = await stream.ReadAsync(buffer, watch.Token);
                     if (read == 0) break;
+                    watch.CancelAfter(Timeout.InfiniteTimeSpan);
                     await _limiter.WaitAsync(read, ct);
-                    await RandomAccess.WriteAsync(file, buffer.AsMemory(0, read), at, ct);
+                    try { await RandomAccess.WriteAsync(file, buffer.AsMemory(0, read), at, ct); }
+                    catch (Exception w) when (w is IOException or UnauthorizedAccessException) { throw new DiskWriteException(w); }
                     at += read;
                     Interlocked.Add(ref item.StreamBytes, read);
                     Interlocked.Add(ref item.WindowBytes, read);
@@ -502,7 +696,7 @@ public sealed partial class DownloadEngine : IDisposable
                 RandomAccess.SetLength(file, at);
                 return;
             }
-            catch (Exception e) when (e is HttpRequestException or IOException && attempt < 3 && !ct.IsCancellationRequested)
+            catch (Exception e) when (!ct.IsCancellationRequested && IsConnectionTrouble(e) && attempt < 3)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(500 * attempt), ct);
             }
@@ -513,17 +707,78 @@ public sealed partial class DownloadEngine : IDisposable
         }
     }
 
-    private static bool Retryable(HttpStatusCode s) => s is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)s >= 500;
+    /// <summary>
+    /// The refusal as an exception, with what the server said: file hosts explain themselves in a short JSON answer
+    /// (read up to 4 KB, for a few seconds at most, and only when it is text).
+    /// </summary>
+    private static async Task<DownloadHttpException> RefusedAsync(HttpResponseMessage res, CancellationToken ct)
+    {
+        string? body = null;
+        var type = res.Content.Headers.ContentType?.MediaType ?? "";
+        if (type is "application/json" or "text/plain" || type.EndsWith("+json", StringComparison.Ordinal))
+        {
+            try
+            {
+                using var limit = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                limit.CancelAfter(TimeSpan.FromSeconds(5));
+                await using var stream = await res.Content.ReadAsStreamAsync(limit.Token);
+                var buffer = new byte[4096];
+                var got = 0;
+                int read;
+                while (got < buffer.Length && (read = await stream.ReadAsync(buffer.AsMemory(got), limit.Token)) > 0) got += read;
+                body = Encoding.UTF8.GetString(buffer, 0, got);
+            }
+            catch (Exception e) when (e is IOException or HttpRequestException or OperationCanceledException) { /* the status alone, then */ }
+        }
+        return new DownloadHttpException(res.StatusCode, res.RequestMessage?.RequestUri?.Host, FileHosts.ReasonCode(body));
+    }
 
     private static bool IsTransient(Exception e)
     {
         switch (e)
         {
-            case DownloadHttpException dhe: return Retryable(dhe.Status);
+            case DiskWriteException: return false; // the disk, not the network
+            case DownloadHttpException dhe: return dhe.Retryable;
+            case DownloadIncompleteException or ConnectionStalledException: return true;
+            // A timeout inside the HTTP stack arrives as a cancellation nobody asked for.
+            case OperationCanceledException: return true;
             case HttpRequestException or HttpIOException or TimeoutException or System.Net.Sockets.SocketException: return true;
-            case IOException io when io.InnerException is null: return false; // the disk, not the network
+            case IOException io when io.InnerException is null: return false;
         }
         return e.InnerException is not null && IsTransient(e.InnerException);
+    }
+
+    /// <summary>
+    /// Whether to try a troubled download again. Tries that bring new bytes reset the count, so a long download on a poor
+    /// connection keeps going as long as it moves; it is given up only after several tries in a row that bring nothing.
+    /// While the computer is offline nothing is counted: it waits (up to a limit) for the network to come back.
+    /// </summary>
+    private bool ShouldTryAgain(DownloadItem item, Exception e, ref long before, ref DateTime? offlineSince)
+    {
+        var now = item.Downloaded;
+        if (now > before) { item.RetryAttempts = 0; before = now; }
+        if (!IsOnline())
+        {
+            offlineSince ??= DateTime.UtcNow;
+            return DateTime.UtcNow - offlineSince < Options.MaxOfflineWait;
+        }
+        offlineSince = null;
+        if (item.RetryAttempts >= Options.MaxReconnects) return false;
+        item.RetryAttempts++;
+        return true;
+    }
+
+    /// <summary>2, 4, 8 … seconds between tries, up to the limit.</summary>
+    private TimeSpan RetryDelay(int attempt) =>
+        TimeSpan.FromSeconds(Math.Min(Options.MaxRetryDelay.TotalSeconds, Math.Pow(2, Math.Max(1, attempt))));
+
+    /// <summary>For tests: pretend the computer is offline.</summary>
+    internal Func<bool>? OnlineForTest;
+    private bool IsOnline()
+    {
+        if (OnlineForTest is { } f) return f();
+        try { return System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable(); }
+        catch { return true; }
     }
 
     // ---- Step 3: finish ----
@@ -582,11 +837,15 @@ public sealed partial class DownloadEngine : IDisposable
 
     private static string Friendly(Exception e) => e switch
     {
+        DownloadHttpException x when FileHosts.Explain(x.Host ?? "", x.Status, x.Reason) is { } words => words,
+        DownloadIncompleteException { InnerException: DownloadHttpException x } when FileHosts.Explain(x.Host ?? "", x.Status, x.Reason) is { } words => words,
         DownloadHttpException { Status: HttpStatusCode.NotFound or HttpStatusCode.Gone } => "The server no longer has this file.",
         DownloadHttpException { Status: HttpStatusCode.Forbidden or HttpStatusCode.Unauthorized } => "The server refused the download. Open the page again and retry.",
         DownloadHttpException x => $"The server answered {(int)x.Status}.",
         DrmProtectedException d => d.Message,
         HttpRequestException => "Could not reach the server. Check the connection and retry.",
+        ConnectionStalledException or OperationCanceledException or TimeoutException => "The server stopped sending, and kept doing so for several minutes. Retry to carry on from where it stopped.",
+        DownloadIncompleteException => "The server kept cutting the connection. Retry to carry on from where it stopped.",
         IOException io when io.Message.Contains("disk", StringComparison.OrdinalIgnoreCase) || io.HResult == unchecked((int)0x80070070) => "The disk is full.",
         UnauthorizedAccessException => "No permission to write to the download folder.",
         _ => e.Message,
@@ -619,7 +878,7 @@ public sealed partial class DownloadEngine : IDisposable
         string? ETag, string? LastModified, string? ContentType, long Total, bool CanResume, int Connections, DownloadState State, string? Error,
         DateTime CreatedAt, DateTime? CompletedAt, List<SegmentRecord> Segments,
         PairSpec? Pair = null, StreamSpec? Stream = null, int StreamStage = 0, int Done0 = 0, long Bytes0 = 0, int Done1 = 0, long Bytes1 = 0, bool Fragmented0 = false, bool Fragmented1 = false, string? Ext0 = null, string? Ext1 = null,
-        List<SegmentRecord>? Segments0 = null, List<SegmentRecord>? Segments1 = null);
+        List<SegmentRecord>? Segments0 = null, List<SegmentRecord>? Segments1 = null, bool Sort = false);
 
     private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter() } };
 
@@ -641,7 +900,8 @@ public sealed partial class DownloadEngine : IDisposable
                     item.Segments.Select(s => new SegmentRecord(s.Start, s.End, s.Done)).ToList(),
                     item.Pair, item.Stream, item.StreamStage, item.Done0, item.Bytes0, item.Done1, item.Bytes1, item.Fragmented0, item.Fragmented1, item.Ext0, item.Ext1,
                     item.Children.Count > 0 ? item.Children[0].Segments.Select(s => new SegmentRecord(s.Start, s.End, s.Done)).ToList() : null,
-                    item.Children.Count > 1 ? item.Children[1].Segments.Select(s => new SegmentRecord(s.Start, s.End, s.Done)).ToList() : null);
+                    item.Children.Count > 1 ? item.Children[1].Segments.Select(s => new SegmentRecord(s.Start, s.End, s.Done)).ToList() : null,
+                    item.SortPending);
             var path = StatePath(item);
             var tmp = path + ".tmp";
             lock (_stateGate) // one writer at a time per file keeps the rename safe
@@ -669,6 +929,7 @@ public sealed partial class DownloadEngine : IDisposable
                 item.Pair = r.Pair; item.Stream = r.Stream; item.StreamStage = r.StreamStage; item.Done0 = r.Done0; item.Bytes0 = r.Bytes0; item.Done1 = r.Done1; item.Bytes1 = r.Bytes1;
                 item.Fragmented0 = r.Fragmented0; item.Fragmented1 = r.Fragmented1; item.Ext0 = r.Ext0; item.Ext1 = r.Ext1;
                 item.StreamBytes = r.Bytes0 + r.Bytes1;
+                item.SortPending = r.Sort;
                 foreach (var s in r.Segments) item.Segments.Add(new Segment { Start = s.Start, End = s.End, Done = s.Done });
                 if (r.Pair is { } pair)
                 {

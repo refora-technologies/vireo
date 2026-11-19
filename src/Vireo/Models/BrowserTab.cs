@@ -97,6 +97,10 @@ public sealed class BrowserTab : INotifyPropertyChanged
     }
 
     // What blocking stopped on the current page.
+    /// <summary>The YouTube ads script this tab's page engine has (null: none), and its id to remove it.</summary>
+    internal string? YouTubeAdsText;
+    internal string? YouTubeAdsScript;
+
     public int Blocked { get; private set; }
     public int BlockedAds { get; private set; }
     public int BlockedTrackers { get; private set; }
@@ -105,31 +109,64 @@ public sealed class BrowserTab : INotifyPropertyChanged
     /// <summary>Everything stopped since Vireo started, in all tabs (shown on the start page).</summary>
     public static long TotalAds, TotalTrackers;
 
-    public void CountBlocked(string host, int category)
+    private readonly HashSet<string> _blockedUrls = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _blockedTimes = new(StringComparer.Ordinal);
+
+    /// <summary>How many times this address (without its query) has now been blocked on this page, counting this time.</summary>
+    public int BlockedAgain(string url)
     {
+        var q = url.IndexOf('?');
+        var key = q > 0 ? url[..q] : url;
+        var n = _blockedTimes.GetValueOrDefault(key) + 1;
+        if (n > 1 || _blockedTimes.Count < 20_000) _blockedTimes[key] = n;
+        return n;
+    }
+
+    /// <summary>
+    /// Counts a blocked request once per address (without its query): an ad script that retries a blocked request in a loop,
+    /// often with a new cache-busting query each time, is one blocked item, not thousands. True when the count changed.
+    /// </summary>
+    public bool CountBlocked(string url, string host, int category)
+    {
+        var q = url.IndexOf('?');
+        var key = q > 0 ? url[..q] : url;
+        if (_blockedUrls.Contains(key)) return false;
+        if (_blockedUrls.Count < 20_000) _blockedUrls.Add(key);
         Blocked++;
         if (category == 1) { BlockedTrackers++; Interlocked.Increment(ref TotalTrackers); } else { BlockedAds++; Interlocked.Increment(ref TotalAds); }
         BlockedHosts[host] = BlockedHosts.GetValueOrDefault(host) + 1;
+        return true;
     }
 
     public void ResetBlocked()
     {
         Blocked = BlockedAds = BlockedTrackers = 0;
         BlockedHosts.Clear();
+        _blockedUrls.Clear();
+        _blockedTimes.Clear();
     }
 
     public string Title { get => _title; set => Set(ref _title, value); }
     public string Url { get => _url; set => Set(ref _url, value); }
     public ImageSource? Favicon { get => _favicon; set => Set(ref _favicon, value); }
     public bool IsLoading { get => _isLoading; set => Set(ref _isLoading, value); }
-    public bool IsPlayingAudio { get => _isPlayingAudio; set => Set(ref _isPlayingAudio, value); }
+    public bool IsPlayingAudio
+    {
+        get => _isPlayingAudio;
+        set { if (_isPlayingAudio && !value) AudioStoppedAt = DateTime.UtcNow; Set(ref _isPlayingAudio, value); }
+    }
+
+    /// <summary>When the tab last went quiet. A playlist goes quiet for a few seconds between songs: not a reason to sleep.</summary>
+    public DateTime AudioStoppedAt { get; set; } = DateTime.MinValue;
+    public static readonly TimeSpan QuietGrace = TimeSpan.FromMinutes(2);
+    private bool PlayedLately => IsPlayingAudio || DateTime.UtcNow - AudioStoppedAt < QuietGrace;
     public TabLife Life { get => _life; set => Set(ref _life, value); }
     public bool CanGoBack { get => _canGoBack; set => Set(ref _canGoBack, value); }
     public bool CanGoForward { get => _canGoForward; set => Set(ref _canGoForward, value); }
 
     public string DisplayTitle => !string.IsNullOrWhiteSpace(Title) ? Title : IsStartPage || string.IsNullOrEmpty(Url) ? "New tab" : Url;
 
-    public TabFacts Facts => new(IsPlayingAudio, IsLoading, HasAddress: !IsStartPage && !string.IsNullOrEmpty(Url) && Url != "about:blank", IsPinned);
+    public TabFacts Facts => new(PlayedLately, IsLoading, HasAddress: !IsStartPage && !string.IsNullOrEmpty(Url) && Url != "about:blank", IsPinned);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

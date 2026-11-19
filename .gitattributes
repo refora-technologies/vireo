@@ -1,0 +1,4 @@
+# Signed files must reach every machine byte for byte: a signature covers the exact bytes, so a line ending changed on
+# checkout (CRLF on Windows, LF on Netlify's Linux) would make Vireo refuse the file. No conversion, ever, for these.
+src/Vireo/Assets/rules/**   -text
+tests/Vireo.Tests/data/**   -text

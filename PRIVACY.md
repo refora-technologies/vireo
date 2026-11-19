@@ -20,12 +20,18 @@ it is gone when the window closes. Only the files you choose to download are kep
 downloads. A file saved in a private window carries Windows' "from the internet" mark (so Windows still checks it before
 it runs) but not the address it came from.
 
+**Offering links you copy** (off unless you turn it on, in Settings → Download manager or on the welcome page): when you
+copy something in another program, Vireo looks at it on your computer to see whether it is a single link to a file. If it
+is, Vireo offers to download it; if not, it is ignored at once. Nothing you copy is stored, logged or sent anywhere.
+Copies made in Vireo itself, and anything a password manager marks as private, are not read at all.
+
 ## What Vireo sends, and to whom
 
 Apart from the sites you visit, Vireo only connects to these, and only for these reasons:
 
 | To | When | What is sent |
 |---|---|---|
+| vireo.reforatech.com (Vireo's website) | A minute after starting, then twice a day | A plain request for the public video-ad rules file and its signature. Nothing about you; the site's host sees your IP address, as with any request. |
 | Your search engine (Google, DuckDuckGo, Brave, …) | As you type in the address bar, if search suggestions are on (never in private windows) | What you have typed so far |
 | Microsoft Defender SmartScreen | When you open a page or a download, as Microsoft Edge does | The address, to check it against Microsoft's lists of phishing and malware |
 | The filter-list publishers (EasyList, Peter Lowe, AdGuard) | When the community blocking lists are on, about once a day | A request for the list; nothing about you |

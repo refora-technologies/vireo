@@ -24,7 +24,7 @@ public partial class MainWindow
     // A private window's list is kept in memory only: no record of what it downloaded is written anywhere.
     public DownloadEngine Downloads => _downloads ??= _private
         ? new DownloadEngine(null, OptionsFromSettings()) { ChooseFolder = PrivateDownloadFolder }
-        : (s_downloads ??= new DownloadEngine(Path.Combine(_dataFolder, "downloads"), OptionsFromSettings()));
+        : SharedDownloads(_dataFolder, _settings);
 
     /// <summary>The profile's own settings (a private window's copy is never saved), for the choices a private window keeps.</summary>
     private Settings SavedSettings => s_settings ?? (_savedSettings ??= Settings.Load(_dataFolder));
@@ -59,25 +59,14 @@ public partial class MainWindow
         catch { return saved.DownloadFolder; } // the drive is gone (a USB stick taken out): the normal folder rather than failing
     }
 
-    private DownloadOptions OptionsFromSettings() => new()
-    {
-        Connections = _settings.DownloadConnections,
-        MaxActive = _settings.MaxActiveDownloads,
-        SpeedLimitKBps = _settings.SpeedLimitKBps,
-        Folder = _settings.DownloadFolder,
-    };
+    private DownloadOptions OptionsFromSettings() => OptionsFrom(_settings);
 
     private void StartDownloads()
     {
         _ = Downloads;
         foreach (var i in Downloads.Items) _lastItemStates[i] = i.State;
-        _settings.Changed += () =>
-        {
-            Downloads.Options.Connections = _settings.DownloadConnections;
-            Downloads.Options.MaxActive = _settings.MaxActiveDownloads;
-            Downloads.Options.SpeedLimitKBps = _settings.SpeedLimitKBps;
-            Downloads.Options.Folder = _settings.DownloadFolder;
-        };
+        // A private window's own engine follows the settings here; the shared one follows them by itself (SharedDownloads).
+        if (_private) _settings.Changed += () => ApplyOptions(Downloads.Options, _settings);
         void Changed(DownloadItem i) => Dispatcher.BeginInvoke(() => OnDownloadItemChanged(i), DispatcherPriority.Background);
         void Added(DownloadItem i) => Dispatcher.BeginInvoke(() => OnDownloadItemAdded(i), DispatcherPriority.Background);
         void Removed(DownloadItem i) => Dispatcher.BeginInvoke(() => OnDownloadItemRemoved(i), DispatcherPriority.Background);
@@ -106,7 +95,8 @@ public partial class MainWindow
             if (!_private && LastActive is { } front && front != this) return;
             if (item.State == DownloadState.Completed)
             {
-                ShowToast("Download complete", item.FileName, ShowDownloads);
+                var path = item.FinalPath;
+                ShowToast("Download complete", item.FileName, ShowDownloads, actions: [("Open", () => Format.Open(path)), ("Show in folder", () => Format.ShowInFolder(path))]);
             }
             else if (item.State == DownloadState.Failed && item.Parent is null)
             {
@@ -192,8 +182,10 @@ public partial class MainWindow
             // The page's own cookies go along, so downloads from signed-in sites work.
             string? cookie = null;
             try { cookie = string.Join("; ", (await core.CookieManager.GetCookiesAsync(uri.ToString())).Select(c => $"{c.Name}={c.Value}")); } catch { /* download without cookies */ }
-            var item = Downloads.Add(new DownloadRequest(uri.ToString(), string.IsNullOrWhiteSpace(name) ? null : name, referer, agent, string.IsNullOrEmpty(cookie) ? null : cookie));
-            ShowToast("Downloading", string.IsNullOrEmpty(name) ? uri.Host : name, ShowDownloads);
+            var item = Downloads.Add(new DownloadRequest(uri.ToString(), string.IsNullOrWhiteSpace(name) ? null : name, referer, agent, string.IsNullOrEmpty(cookie) ? null : cookie), out var continued);
+            // The same file again while it is unfinished: the download carries on, no second copy.
+            if (continued) ShowToast("Carrying on", $"{item.FileName} continues from where it stopped", ShowDownloads);
+            else ShowToast("Downloading", string.IsNullOrEmpty(name) ? uri.Host : name, ShowDownloads);
 
             // Clean tab management: if this tab was opened solely to trigger the download (e.g. target="_blank")
             // and has no navigation history, close the orphaned blank tab.
@@ -207,7 +199,7 @@ public partial class MainWindow
     // ---- A small notice under the toolbar ----
 
     /// <summary>The latest notice that came while another program was in front: shown when Vireo is brought back.</summary>
-    private (string Title, string Detail, Action? Click, bool IsError)? _waitingToast;
+    private (string Title, string Detail, Action? Click, bool IsError, (string Label, Action Do)[]? Actions)? _waitingToast;
     private bool _toastHooks;
     /// <summary>For tests: whether a notice is on screen now, and whether one is waiting for the window to come forward.</summary>
     internal bool ToastShowing => _toast is { IsOpen: true };
@@ -217,7 +209,11 @@ public partial class MainWindow
 
     private bool IsForeground => ForegroundForTest ?? (IsActive && WindowState != WindowState.Minimized);
 
-    internal void ShowToast(string title, string detail, Action? click = null, bool isError = false)
+    /// <summary>
+    /// A notice at the bottom right of the page. <paramref name="click"/> is what clicking it does; <paramref name="actions"/>
+    /// are buttons on it ("Open", "Show in folder").
+    /// </summary>
+    internal void ShowToast(string title, string detail, Action? click = null, bool isError = false, (string Label, Action Do)[]? actions = null)
     {
         if (!_toastHooks)
         {
@@ -231,7 +227,7 @@ public partial class MainWindow
         // and the notice waits until Vireo is brought forward.
         if (!IsForeground)
         {
-            _waitingToast = (title, detail, click, isError);
+            _waitingToast = (title, detail, click, isError, actions);
             Native.FlashTaskbar(this);
             return;
         }
@@ -250,13 +246,24 @@ public partial class MainWindow
         var iconFg = isError ? "Danger" : iconCode == 0xE73E ? "Info" : "Accent";
         row.Children.Add(new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(6), Background = UiKit.Brush("Surface3"), Child = UiKit.Icon(iconCode, 14, iconFg) });
         row.Children.Add(text);
+        if (actions is { Length: > 0 })
+        {
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, -6, 0) };
+            foreach (var (label, act) in actions)
+            {
+                var b = new Button { Content = label, Style = (Style)FindResource("GhostButton"), FontSize = 12, Padding = new Thickness(9, 5, 9, 5), Margin = new Thickness(2, 0, 0, 0) };
+                b.Click += (_, e) => { e.Handled = true; _toast!.IsOpen = false; act(); };
+                buttons.Children.Add(b);
+            }
+            row.Children.Add(buttons);
+        }
         var card = new Border
         {
             Margin = new Thickness(18), Padding = new Thickness(8, 8, 14, 8), CornerRadius = new CornerRadius(8), Background = UiKit.Brush("Surface2"), Cursor = System.Windows.Input.Cursors.Hand,
             BorderBrush = UiKit.Brush("Line2"), BorderThickness = new Thickness(1), Child = row, Opacity = 0, RenderTransform = new TranslateTransform(0, 8),
             Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 6, Opacity = 0.5, Color = Colors.Black },
         };
-        card.MouseLeftButtonUp += (_, _) => { _toast!.IsOpen = false; click?.Invoke(); };
+        card.MouseLeftButtonUp += (_, _) => { _toast!.IsOpen = false; click?.Invoke(); }; // a button on it handles its own click
         _toast.Child = card;
         // Measured here, in the window's own units, so the corner is exact whatever the screen's scaling.
         card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
@@ -264,16 +271,21 @@ public partial class MainWindow
         _toast.HorizontalOffset = Math.Max(0, Pages.ActualWidth - card.DesiredSize.Width);
         _toast.VerticalOffset = Math.Max(0, Pages.ActualHeight - card.DesiredSize.Height);
         _toast.IsOpen = true;
-        Native.NotOnTop(_toast);
+        Native.KeepJustAbove(_toast, this);
+        Motion.CacheWhileMoving(card, 280); // its shadow is drawn once while it slides in
         card.BeginAnimation(OpacityProperty, new DoubleAnimation(1, TimeSpan.FromMilliseconds(180)));
         card.RenderTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(280)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
 
-        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3.5) };
+        // A notice with buttons stays longer, so there is time to use them (and while the pointer is on it).
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(actions is { Length: > 0 } ? 7 : 3.5) };
+        card.MouseEnter += (_, _) => _toastTimer?.Stop();
+        card.MouseLeave += (_, _) => _toastTimer?.Start();
         _toastTimer.Tick += (_, _) =>
         {
             _toastTimer!.Stop();
             var fade = new DoubleAnimation(0, TimeSpan.FromMilliseconds(220));
             fade.Completed += (_, _) => _toast.IsOpen = false;
+            Motion.CacheWhileMoving(card, 220);
             card.BeginAnimation(OpacityProperty, fade);
         };
         _toastTimer.Start();
@@ -292,6 +304,6 @@ public partial class MainWindow
         if (_waitingToast is not { } t) return;
         _waitingToast = null;
         // After the window has settled in front (activation comes before it is drawn there).
-        Dispatcher.BeginInvoke(() => ShowToast(t.Title, t.Detail, t.Click, t.IsError), DispatcherPriority.ApplicationIdle);
+        Dispatcher.BeginInvoke(() => ShowToast(t.Title, t.Detail, t.Click, t.IsError, t.Actions), DispatcherPriority.ApplicationIdle);
     }
 }

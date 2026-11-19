@@ -16,6 +16,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Vireo\Vireo.csproj" />
+    <!-- The signing tool's code, so the tests can sign with test keys exactly as the tool does. -->
+    <Compile Include="..\..\tools\vireo-sign\Signer.cs" Link="Signer.cs" />
+    <None Include="data\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

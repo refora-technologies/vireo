@@ -22,6 +22,7 @@ const TYPES = {
   '.jpg': 'image/jpeg',
   '.png': 'image/png',
   '.bin': 'application/octet-stream',
+  '.json': 'application/json',
 };
 
 // A moving live stream made from live-src: a 4-piece window that advances every 2 s.
@@ -80,6 +81,11 @@ function handler(req, res) {
     if (!okReferer || !okOrigin) return void res.writeHead(403).end('Forbidden');
     pathname = pathname.replace('/guarded/', '/hls/');
   }
+  // A big file of any size without one on disk: /generated/314572800.bin. Each byte comes from its position, so any range
+  // the downloader asks for is the same every time.
+  const generated = /^\/generated\/(\d+)\.bin$/.exec(pathname);
+  if (generated) return void serveGenerated(req, res, url, Number(generated[1]));
+
   const path = normalize(join(root, decodeURIComponent(pathname)));
   if (!path.startsWith(root)) return void res.writeHead(403).end();
   let size;
@@ -122,6 +128,42 @@ function handler(req, res) {
   });
   stream.on('end', () => res.end());
   res.on('close', () => stream.destroy());
+}
+
+// Serves `size` made-up bytes (byte i is i mod 251), with ranges and ?throttle=KBps like a real file.
+function serveGenerated(req, res, url, size) {
+  let start = 0;
+  let end = size - 1;
+  let status = 200;
+  const headers = { 'content-type': 'application/octet-stream', 'accept-ranges': 'bytes', 'cache-control': 'no-store' };
+  const range = /bytes=(\d*)-(\d*)/.exec(req.headers.range ?? '');
+  if (range) {
+    start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+    status = 206;
+    headers['content-range'] = `bytes ${start}-${end}/${size}`;
+  }
+  headers['content-length'] = String(end - start + 1);
+  res.writeHead(status, headers);
+  if (req.method === 'HEAD') return void res.end();
+  const kbps = Number(url.searchParams.get('throttle'));
+  const chunk = kbps ? Math.max(1024, (kbps * 1024) / 10) : 64 * 1024;
+  let at = start;
+  let closed = false;
+  res.on('close', () => { closed = true; });
+  const next = () => {
+    if (closed) return;
+    if (at > end) return void res.end();
+    const n = Math.min(chunk, end - at + 1);
+    const buf = Buffer.allocUnsafe(n);
+    for (let i = 0; i < n; i++) buf[i] = (at + i) % 251;
+    at += n;
+    const more = res.write(buf);
+    if (kbps) setTimeout(next, 100);
+    else if (more) setImmediate(next);
+    else res.once('drain', next);
+  };
+  next();
 }
 
 createServer(handler).listen(port, '127.0.0.1', () => console.log(`Test media server on http://127.0.0.1:${port}`));

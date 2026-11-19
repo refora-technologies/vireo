@@ -13,8 +13,12 @@ public partial class App : Application
     internal static int Errors;
 
     /// <summary>Where problems are written down, so a crash leaves something to look at.</summary>
+    /// A profile kept elsewhere (VIREO_DATA: tests and developers) keeps its own log, so a test run never writes into the
+    /// person's real one.
     public static string CrashLogPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vireo", "crash.log");
+        Environment.GetEnvironmentVariable("VIREO_DATA") is { Length: > 0 } data
+            ? Path.Combine(Path.GetFullPath(data), "crash.log")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vireo", "crash.log");
 
     /// <summary>The profile this Vireo runs ("--profile work"); empty for the default one.</summary>
     internal static string ProfileId { get; private set; } = ProfileFrom(Environment.GetCommandLineArgs());
@@ -44,25 +48,54 @@ public partial class App : Application
     {
         // "Vireo.exe --register" lists Vireo among the browsers Windows can use, then quits.
         if (e.Args.Contains("--register")) { DefaultBrowser.Register(Environment.ProcessPath!); Shutdown(0); return; }
-        if (e.Args.Contains("--unregister")) { DefaultBrowser.Unregister(); Shutdown(0); return; }
+        // Uninstalling: out of the list of browsers, and the downloader no longer starts with Windows.
+        if (e.Args.Contains("--unregister")) { DefaultBrowser.Unregister(); AutoStart.RemoveAll(); Shutdown(0); return; }
 
         // Only one Vireo per profile: a second launch hands its link to the first and leaves.
         var instance = new SingleInstance(ProfileFolder());
         if (!instance.IsFirst)
         {
-            var link = e.Args.FirstOrDefault(a => !a.StartsWith("--") && !IsOptionValue(a)) ?? "";
+            // Windows starting the downloader at sign-in while Vireo already runs: nothing to do.
+            if (e.Args.Contains("--downloads") && e.Args.Contains("--quiet")) { instance.Dispose(); Shutdown(0); return; }
+            // "--downloads" (the Start menu's Vireo Downloads) brings the running Vireo's downloads forward.
+            var link = e.Args.Contains("--downloads") ? DownloadsRequest : e.Args.FirstOrDefault(a => !a.StartsWith("--") && !IsOptionValue(a)) ?? "";
             if (instance.Send(link)) { instance.Dispose(); Shutdown(0); return; }
         }
         else
         {
             Instance = instance;
-            instance.Received += link => Dispatcher.BeginInvoke(() => (Vireo.MainWindow.LastActive ?? MainWindow as MainWindow)?.OpenFromOutside(link));
+            instance.Received += link => Dispatcher.BeginInvoke(() =>
+            {
+                if (link == DownloadsRequest) { Vireo.MainWindow.ShowDownloadsFromOutside(); return; }
+                // Only the downloader is running (the browser was closed with downloads going): the browser comes back.
+                if (Vireo.MainWindow.InBackground) Vireo.MainWindow.OpenBrowserFromBackground(link);
+                else (Vireo.MainWindow.LastActive ?? MainWindow as MainWindow)?.OpenFromOutside(link);
+            });
         }
+        // A steady 30 frames a second on machines that draw without a graphics card (see Motion).
+        Motion.TuneForThisMachine();
+        // "When downloads finish: shut down" warns for a minute first, with Cancel in front.
+        WhenDone.Warn = what => new Vireo.Controls.WhenDoneCountdown(what, WhenDone.Warning).Run();
         base.OnStartup(e);
         ForgetOldPrivateDownloads();
         DispatcherUnhandledException += OnUiException;
         AppDomain.CurrentDomain.UnhandledException += (_, args) => Log("Unhandled (fatal)", args.ExceptionObject as Exception);
         TaskScheduler.UnobservedTaskException += (_, args) => { Log("Background task", args.Exception); args.SetObserved(); };
+
+        // "Vireo.exe --downloads": only the downloader, in the notification area; no browser window and no page engine.
+        if (e.Args.Contains("--downloads") && !e.Args.Contains("--selftest")) Vireo.MainWindow.StartDownloaderOnly(quiet: e.Args.Contains("--quiet"));
+        else new Vireo.MainWindow().Show();
+    }
+
+    /// <summary>What a second start sends to ask for the downloads (not an address: it cannot be mistaken for one).</summary>
+    internal const string DownloadsRequest = "vireo:downloads";
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        // Windows is shutting down or signing out: no question, no background; downloads are kept for next time.
+        Vireo.MainWindow.EndingSession = true;
+        if (Vireo.MainWindow.InBackground) Vireo.MainWindow.QuitFromBackground();
+        base.OnSessionEnding(e);
     }
 
     protected override void OnExit(ExitEventArgs e)

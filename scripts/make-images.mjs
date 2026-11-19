@@ -19,7 +19,8 @@ const browser = await chromium.launch({ channel: 'msedge' });
 const page = await browser.newPage({ deviceScaleFactor: 1 });
 
 // ---- The app icon ----
-const iconSizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
+// Every size Windows uses: the taskbar and Start at 100, 125, 150 and 200% scaling, Explorer views, the installer.
+const iconSizes = [16, 20, 24, 30, 32, 36, 40, 48, 64, 72, 96, 128, 256];
 const pngs = [];
 for (const size of iconSizes) {
   await page.setViewportSize({ width: size, height: size });

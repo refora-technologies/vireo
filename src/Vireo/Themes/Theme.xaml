@@ -260,32 +260,26 @@
     <DrawingImage x:Key="AppMark">
         <DrawingImage.Drawing>
             <DrawingGroup>
-                <GeometryDrawing Geometry="M17,2 H47 A15,15 0 0 1 62,17 V47 A15,15 0 0 1 47,62 H17 A15,15 0 0 1 2,47 V17 A15,15 0 0 1 17,2 Z">
+                <!-- Same drawing as Assets/vireo-mark.svg: a round teal badge with the bird in Vireo's dark ink. -->
+                <GeometryDrawing>
+                    <GeometryDrawing.Geometry><EllipseGeometry Center="32,32" RadiusX="30.5" RadiusY="30.5"/></GeometryDrawing.Geometry>
                     <GeometryDrawing.Brush>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#1D4A40" Offset="0"/>
-                            <GradientStop Color="#0E1F1C" Offset="1"/>
+                            <GradientStop Color="#6FF0D2" Offset="0"/>
+                            <GradientStop Color="#23B894" Offset="1"/>
                         </LinearGradientBrush>
                     </GeometryDrawing.Brush>
-                    <GeometryDrawing.Pen><Pen Brush="#1AFFFFFF" Thickness="1"/></GeometryDrawing.Pen>
                 </GeometryDrawing>
                 <DrawingGroup>
                     <DrawingGroup.Transform>
                         <TransformGroup>
                             <TranslateTransform X="-30.25" Y="-30"/>
-                            <ScaleTransform ScaleX="0.82" ScaleY="0.82"/>
+                            <ScaleTransform ScaleX="0.84" ScaleY="0.84"/>
                             <TranslateTransform X="32" Y="32"/>
                         </TransformGroup>
                     </DrawingGroup.Transform>
-                    <GeometryDrawing Geometry="{StaticResource BirdBody}">
-                        <GeometryDrawing.Brush>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                <GradientStop Color="#6FF0D2" Offset="0"/>
-                                <GradientStop Color="#2CC7A6" Offset="1"/>
-                            </LinearGradientBrush>
-                        </GeometryDrawing.Brush>
-                    </GeometryDrawing>
-                    <GeometryDrawing Geometry="{StaticResource BirdWing}" Brush="#13302A"/>
+                    <GeometryDrawing Geometry="{StaticResource BirdBody}" Brush="#04241D"/>
+                    <GeometryDrawing Geometry="{StaticResource BirdWing}" Brush="#3DDBB9"/>
                 </DrawingGroup>
                 <!-- keeps the drawing's frame 64×64, so it lines up exactly with the icon files -->
                 <GeometryDrawing Geometry="M0,0 M64,64" Brush="Transparent"/>

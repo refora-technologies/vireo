@@ -90,21 +90,38 @@ public partial class MainWindow
         _lists = new FilterLists(Path.Combine(_dataFolder, "filters"));
         _builtIn = ReadBuiltIn();
         _guardScript = ReadAsset("guard.js");
-        _filters = Rebuild();
+        // Vireo's own small list at once; the community lists (about 250,000 rules, a quarter of a second or more to read)
+        // are built away from the window's thread, so starting never freezes it. The first page waits for them (see
+        // FiltersReady), so nothing loads before the full lists apply.
+        _filters = FilterLists.Build(_builtIn, []);
         FilterStatus = Describe();
         _settings.Changed += OnBlockingSettingsChanged;
-        // Community lists are loaded and refreshed in the background so start-up never waits for them.
         _ = Task.Run(async () =>
         {
-            if (_settings.UseCommunityLists)
+            try
             {
-                var fresh = _lists.NeedsUpdate(TimeSpan.FromDays(4)) && await _lists.UpdateAsync();
-                var built = Rebuild();
-                _ = Dispatcher.InvokeAsync(() => { _filters = built; FilterStatus = Describe(); foreach (var w in s_windows.ToList()) w.UpdateShield(); });
-                if (fresh) _settings.ListsUpdatedAt = DateTime.Now;
+                if (_settings.UseCommunityLists)
+                {
+                    // The copy already on disk first (quick), then a fresh download when it is due (it can take a while).
+                    var built = Rebuild();
+                    await Dispatcher.InvokeAsync(() => { _filters = built; FilterStatus = Describe(); foreach (var w in s_windows.ToList()) w.UpdateShield(); });
+                    s_filtersReady.TrySetResult();
+                    if (_lists.NeedsUpdate(TimeSpan.FromDays(4)) && await _lists.UpdateAsync())
+                    {
+                        var fresh = Rebuild();
+                        _ = Dispatcher.InvokeAsync(() => { _filters = fresh; FilterStatus = Describe(); foreach (var w in s_windows.ToList()) w.UpdateShield(); });
+                        _settings.ListsUpdatedAt = DateTime.Now;
+                    }
+                }
             }
+            finally { s_filtersReady.TrySetResult(); }
         });
     }
+
+    private static readonly TaskCompletionSource s_filtersReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>The blocking lists are in place (at most a couple of seconds after start, never longer than the wait given).</summary>
+    internal static Task FiltersReady(TimeSpan atMost) => Task.WhenAny(s_filtersReady.Task, Task.Delay(atMost));
 
     private static string _guardScript = "";
 

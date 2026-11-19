@@ -112,14 +112,9 @@ public partial class MainWindow
                     _ => string.Join(" · ", new[] { Format.Bytes(i.Downloaded) + (i.Total > 0 ? " / " + Format.Bytes(i.Total) : ""), Format.Speed(i.Speed), i.Speed > 1 && i.Total > 0 ? Format.Eta(TimeSpan.FromSeconds((i.Total - i.Downloaded) / i.Speed)) : "", i.ActiveConnections > 1 ? $"×{i.ActiveConnections}" : "" }.Where(s => s.Length > 0)),
                 },
             }).ToList();
-        // The person's own sites first, then the ones they visit most (minus any they took off), ten in all.
-        var pinned = _settings.PinnedSites.Select(p => new { title = p.Title, url = p.Url, pinned = true }).ToList();
-        var pinnedHosts = pinned.Select(p => SiteIcons.Key(p.url)).ToHashSet();
-        var top = pinned.Concat(_library.History.Where(h => !h.Url.Contains(StartHost)).GroupBy(h => Uri.TryCreate(h.Url, UriKind.Absolute, out var u) ? u.Host : h.Url)
-            .Select(g => (Site: g.OrderByDescending(h => h.Visits).First(), Visits: g.Sum(h => h.Visits))).OrderByDescending(x => x.Visits)
-            .Select(x => new { title = SiteName(x.Site), url = Uri.TryCreate(x.Site.Url, UriKind.Absolute, out var u) ? u.GetLeftPart(UriPartial.Authority) + "/" : x.Site.Url, pinned = false })
-            .Where(x => !pinnedHosts.Contains(SiteIcons.Key(x.url)) && !_settings.HiddenSites.Contains(SiteIcons.Key(x.url) ?? x.url))
-            .Take(Math.Max(0, 10 - pinned.Count))).Take(10).ToList();
+        // Only the sites the person put there with "Add site" (up to ten): the start page is theirs, not a list of their
+        // history. (It used to fill the rest with the most visited sites; history stays in History, Ctrl+H.)
+        var top = _settings.PinnedSites.Select(p => new { title = p.Title, url = p.Url, pinned = true }).Take(10).ToList();
         // The sites (with their icons) only travel when they change or a page has just opened: they are the heavy part.
         var topKey = string.Join("|", top.Select(t => t.title + "@" + t.url + (t.pinned ? "!" : "") + (SiteIcons.DataUri(t.url) is null ? "" : "*")));
         var sendTop = only is not null || topKey != _homeTopKey;

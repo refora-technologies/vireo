@@ -129,8 +129,8 @@ password store. "Clear browsing data" removes history, cookies, cache or passwor
 and background workers run as usual; Vireo draws each extension's button next to the address bar and opens its popup
 under it, sized to fit. Extensions from the web stores have to be downloaded as a file first.
 
-**Start page.** Your sites (pin your own with "Add site"; hover a tile to edit or remove it; the most-visited fill the
-rest), live download speed with a minute of history, what is downloading, what was blocked, and a box that downloads any
+**Start page.** Your sites, only the ones you put there with "Add site" (up to ten; hover a tile to edit or remove it;
+your history is never shown there), live download speed with a minute of history, what is downloading, what was blocked, and a box that downloads any
 pasted link (a stream, a video page or a file) at the best quality.
 
 **Players that hide their stream.** Players that fetch their playlist from a Web Worker (Twitch's and Kick's) are watched

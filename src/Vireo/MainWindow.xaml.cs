@@ -120,6 +120,8 @@ public partial class MainWindow : Window
         else
         {
             var first = selfTest ? null : args.Skip(1).FirstOrDefault(a => !a.StartsWith("--") && !App.IsOptionValue(a));
+            // The first pages wait (briefly) for the ad and tracker lists, so none of them loads before blocking is complete.
+            await FiltersReady(TimeSpan.FromSeconds(3));
             var restored = !selfTest && !_private && _settings.RestoreTabs && await RestoreSessionAsync();
             if (first is not null) await OpenTabAsync(UrlInput.Resolve(first, _settings.SearchTemplate));
             else if (!restored) await OpenTabAsync(null);

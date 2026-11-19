@@ -245,6 +245,27 @@ public sealed class SignedRulesTests : IDisposable
         Assert.NotNull(rules);
     }
 
+    /// <summary>
+    /// The real website, exactly as an installed Vireo reads it: a Vireo whose own rules are older downloads the published
+    /// file and its signature from vireo.reforatech.com, checks them with the key built into it, takes them and keeps them.
+    /// Run after publishing new rules: VIREO_LIVE=1 dotnet test --filter Published_rules.
+    /// </summary>
+    [Fact]
+    public async Task Published_rules_are_taken_by_Vireo_from_the_website()
+    {
+        if (Environment.GetEnvironmentVariable("VIREO_LIVE") != "1") return;
+        var key = YouTubeRulesStore.BuiltInKey()!;
+        // No built-in file here: this store starts from the minimal rules (version 0), so any published version is newer.
+        var store = new YouTubeRulesStore(Path.Combine(_root, "live"), key, builtInPath: Path.Combine(_root, "none.json"));
+        Assert.Equal(0, store.Current.Version);
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("User-Agent", "Vireo-release-check");
+        Assert.True(await store.CheckAsync(http)); // YouTubeRulesStore.Address, the address built into Vireo
+        var master = YouTubeRules.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", "rules", "youtube.json")))!;
+        Assert.Equal(master.Version, store.Current.Version);
+        Assert.True(File.Exists(Path.Combine(_root, "live", "youtube.json.minisig"))); // kept, with its signature
+    }
+
     // ---- the signing tool's secret key ----
 
     [Fact]

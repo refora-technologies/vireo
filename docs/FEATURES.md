@@ -23,7 +23,10 @@ timers shorten (10 s / 2 min) and Chromium's low-end mode is switched on. The me
 take over the tail of slow ones, everything is written into a pre-sized file, and progress is saved so a
 download survives a pause, a dropped connection or closing the browser. Queue, speed limit, naming,
 the page's cookies and Referer (so signed-in downloads work) and a progress bar that shows each
-connection's piece of the file.
+connection's piece of the file. Built not to drop in the middle: a connection that sends nothing for 30 seconds is cut and
+opened again from where it stopped; a connection that keeps failing hands its part to the others instead of ending the
+download; a host that answers "too many requests" gets fewer connections; tries that bring new bytes never count against
+the download; and while the computer is offline it waits (up to 30 minutes) for the internet to come back.
 
 **Saves video and audio from pages, natively.** Vireo watches what a page plays (`src/Vireo/Media`) and
 puts a **Download** button right on each video or audio player, with a menu of qualities. The toolbar
@@ -67,7 +70,10 @@ servers and the AdGuard DNS filter (ad, tracker and device-telemetry hosts) are 
 a small list of Vireo's own works with no download. Whole-host rules are kept as compact hashes (190,000 hosts in about
 5 MB). Every request is checked before it leaves and a refused one fails like a dead connection (so pages and ad scripts
 cannot tell it "got an answer"); leftover ad boxes are hidden by the names the page uses, and the shield shows what was
-stopped. On adblock.turtlecute.org Vireo blocks 115 of 130. The two it lets through are the "ads.js" / "pagead.js"
+stopped, counting each address once (a script retrying the same blocked address counts once, not thousands of times). Ad
+code that retries a refused address in a loop (one news site asked for the same ad configuration about 300 times a second)
+is refused more and more slowly after three tries, up to five seconds each, so the loop cannot load the page engine or
+make the window stop answering. On adblock.turtlecute.org Vireo blocks 115 of 130. The two it lets through are the "ads.js" / "pagead.js"
 script checks: those names are the bait sites use to detect blockers, and refusing them everywhere starts "turn off your
 ad blocker" walls. Video files and stream playlists are never refused, so players are not broken. Per-site and global
 switches; switch the community lists off for a much smaller footprint.

@@ -49,6 +49,16 @@ adds one page of your own; `VIREO_SURVEY_DOWNLOAD=1` saves the smallest quality 
 `VIREO_NETLOG=1` writes every answer the page received and every request the blocker stopped to `netlog-*.txt`, for
 working out why a site's video is not found.
 
+Freezes (needs the internet, only on request): `VIREO_STEPS=freezes` opens busy, ad-heavy news sites in six tabs while a
+300 MB throttled download runs over every connection, switches and scrolls for `VIREO_FREEZE_MINUTES` (default 4), and fails
+if the window ever stops answering for a second. It prints how many requests were blocked and which addresses repeat. Copy
+the community filter lists into the test profile's `filters` folder first, or the busy sites are not blocked the way they
+are for people. To see where a freeze happens, install dotnet-stack (`dotnet tool install dotnet-stack --tool-path .tools`)
+and set `VIREO_STALL_STACKS` to `.tools\dotnet-stack.exe`: every stall then writes all thread stacks, taken while the window
+is still stuck, to `stalls.log` in the profile folder.
+
+The test server also serves made-up files of any size with ranges and throttling: `/generated/<bytes>.bin?throttle=<KBps>`.
+
 ### Filter lists for the tests
 
 `curl -L -o lists/easylist.txt https://easylist.to/easylist/easylist.txt` (and `easyprivacy.txt`) lets the real-list test

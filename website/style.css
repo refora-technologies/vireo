@@ -105,7 +105,7 @@ h2 { margin: 10px 0 0; font-size: clamp(32px, 3.6vw, 46px); line-height: 1.06; l
 .list li b { color: var(--text); font-weight: 600; }
 .list svg { width: 20px; height: 20px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
 
-.more { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.more { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .more article { background: var(--panel); border: 1px solid var(--edge); border-radius: 22px; padding: 22px; }
 .more svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .more h3 { margin: 14px 0 4px; font-size: 15.5px; font-weight: 600; }

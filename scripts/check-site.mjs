@@ -1,15 +1,18 @@
-// Checks the website as Netlify will serve it: website/ with the headers from netlify.toml. Loads the pages in Edge and
-// reports anything the security policy blocks, missing files, and how the rules files are served (type, caching, CORS:
-// a page on another site must be able to read them too).
+// Checks Vireo's website as Netlify will serve it: its public/ folder with the headers from its netlify.toml. Loads the
+// pages in Edge and reports anything the security policy blocks, missing files, and how the rules files are served (type,
+// caching, CORS: a page on another site must be able to read them too), and that the published rules are exactly the
+// signed master copy in this repository.
+// The website lives beside this repository, in ../vireo-website (or wherever VIREO_SITE says).
 // Run:  cd scripts && node check-site.mjs
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = fileURLToPath(new URL('../website/', import.meta.url));
-const toml = await readFile(new URL('../netlify.toml', import.meta.url), 'utf8');
+const folder = process.env.VIREO_SITE ?? fileURLToPath(new URL('../../vireo-website/', import.meta.url));
+const root = join(folder, 'public') + sep;
+const toml = await readFile(join(folder, 'netlify.toml'), 'utf8');
 
 // The [[headers]] blocks: { for, values }.
 const rules = [];
@@ -83,6 +86,12 @@ try {
   const sig = await fetch(base + '/rules/v1/youtube.json.minisig');
   console.log(sig.status === 200 ? `PASS  its signature is published (${sig.headers.get('content-type')})` : 'NOTE  no signature published yet: Vireo ignores the file until it is signed');
 } catch { /* no network */ }
+// The published rules must be exactly the signed master copy in this repository (byte for byte, signature included).
+for (const name of ['youtube.json', 'youtube.json.minisig']) {
+  const published = await readFile(join(root, 'rules', 'v1', name)).catch(() => null);
+  const master = await readFile(new URL(`../src/Vireo/Assets/rules/${name}`, import.meta.url)).catch(() => null);
+  say(published !== null && master !== null && Buffer.compare(published, master) === 0, `rules/v1/${name} is exactly the master copy in the app repository`);
+}
 
 await browser.close();
 server.close();

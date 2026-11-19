@@ -1,8 +1,8 @@
 // vireo-sign: Refora's rules key, and signing Vireo's rules files with it.
 //
 //   dotnet run --project tools/vireo-sign -- keygen --secret <path outside the repository>   make the key, once
-//   dotnet run --project tools/vireo-sign -- sign --secret <path> website/rules/v1/youtube.json
-//   dotnet run --project tools/vireo-sign -- verify website/rules/v1/youtube.json             check it as Vireo will
+//   dotnet run --project tools/vireo-sign -- sign --secret <path> src/Vireo/Assets/rules/youtube.json
+//   dotnet run --project tools/vireo-sign -- verify src/Vireo/Assets/rules/youtube.json             check it as Vireo will
 //
 // The secret key is written where --secret says, locked with a password asked for here and never stored. Keep a copy
 // somewhere safe: a lost key means a new one, and only Vireo versions that carry the new public key accept its files.

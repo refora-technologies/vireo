@@ -162,7 +162,8 @@ public partial class MainWindow
         var downloads = UiKit.Card(
             UiKit.Row("Download buttons on videos and audio", "A button appears on the video or song a page is playing, with its qualities.", UiKit.Switch(s.ShowDownloadButtons, on => { s.ShowDownloadButtons = on; Save(); })),
             UiKit.Block("When to show them", null, UiKit.Segmented<string>([("On hover", "hover"), ("Always", "always")], s.DownloadButtonMode, v => { s.DownloadButtonMode = v; Save(); })),
-            UiKit.Row("Connections per download", "More connections finish big files sooner. Some servers allow only a few.", UiKit.Stepper(s.DownloadConnections, 1, 16, 1, v => v.ToString(), v => { s.DownloadConnections = v; Save(); })),
+            UiKit.Row("Connections per download", "Automatic starts with a few and adds more only while that makes the download faster (up to 16), and never pushes a server that allows fewer.",
+                UiKit.Stepper(s.DownloadConnections, 0, 16, 1, v => v == 0 ? "Automatic" : v.ToString(), v => { s.DownloadConnections = v; Save(); })),
             UiKit.Row("Downloads at once", null, UiKit.Stepper(s.MaxActiveDownloads, 1, 8, 1, v => v.ToString(), v => { s.MaxActiveDownloads = v; Save(); })),
             UiKit.Row("Speed limit", "Shared by all downloads, so the rest of your connection stays free.", UiKit.Stepper(s.SpeedLimitKBps, 0, 102400, 256, Speed, v => { s.SpeedLimitKBps = v; Save(); })),
             UiKit.Block("Closing Vireo while downloads run", "Keep downloading: the browser closes and only the downloader stays, in the notification area, until they are done.",

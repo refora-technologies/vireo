@@ -120,7 +120,8 @@ public partial class MainWindow
 
     private static void ApplyOptions(DownloadOptions o, Settings s)
     {
-        o.Connections = s.DownloadConnections;
+        o.AutoConnections = s.DownloadConnections == 0;
+        o.Connections = s.DownloadConnections == 0 ? Settings.AutoConnectionsUpTo : s.DownloadConnections;
         o.MaxActive = s.MaxActiveDownloads;
         o.SpeedLimitKBps = s.SpeedLimitKBps;
         o.Folder = s.DownloadFolder;

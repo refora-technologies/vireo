@@ -37,7 +37,10 @@ public sealed class Settings
     public bool ClearDataOnExit { get; set; }
 
     // Downloads
-    public int DownloadConnections { get; set; } = 8;
+    /// <summary>Connections per download; 0 is automatic (see AutoConnectionsUpTo).</summary>
+    public int DownloadConnections { get; set; }
+    /// <summary>The most an automatic download uses, when a server rewards more connections.</summary>
+    public const int AutoConnectionsUpTo = 16;
     public int MaxActiveDownloads { get; set; } = 3;
     /// <summary>Kilobytes per second shared by all downloads; 0 means no limit.</summary>
     public int SpeedLimitKBps { get; set; }
@@ -136,10 +139,16 @@ public sealed class Settings
             s.SearchTemplate = UrlInput.DefaultSearch;
             s.Version = 2;
         }
+        if (s.Version < 3)
+        {
+            // Automatic connections arrived: 8 was the old default, so whoever still has it gets the new default.
+            if (s.DownloadConnections == 8) s.DownloadConnections = 0;
+            s.Version = 3;
+        }
         if (!s.SearchTemplate.Contains("{0}")) s.SearchTemplate = UrlInput.DefaultSearch;
         if (string.IsNullOrWhiteSpace(s.DownloadFolder))
             s.DownloadFolder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-        s.DownloadConnections = Math.Clamp(s.DownloadConnections, 1, 32);
+        s.DownloadConnections = Math.Clamp(s.DownloadConnections, 0, 32);
         s.MaxActiveDownloads = Math.Clamp(s.MaxActiveDownloads, 1, 10);
         return s;
     }

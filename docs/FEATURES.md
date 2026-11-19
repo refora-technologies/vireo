@@ -19,7 +19,9 @@ timers shorten (10 s / 2 min) and Chromium's low-end mode is switched on. The me
 "See all tabs" (Ctrl+Shift+A) lists every tab with its state, and "Free memory now" does it at once.
 
 **A real download manager.** Downloads started by pages are taken over by Vireo's own engine
-(`src/Vireo/Downloads`): the file is split over several connections (8 by default), fast connections
+(`src/Vireo/Downloads`): the file is split over several connections (automatic by default: it starts with three and
+adds more, up to 16, only while that makes the download faster, and stops adding the moment a server says "too many";
+or a fixed number chosen in Settings), fast connections
 take over the tail of slow ones, everything is written into a pre-sized file, and progress is saved so a
 download survives a pause, a dropped connection or closing the browser. Queue, speed limit, naming,
 the page's cookies and Referer (so signed-in downloads work) and a progress bar that shows each

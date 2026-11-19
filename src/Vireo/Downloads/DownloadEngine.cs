@@ -26,6 +26,15 @@ public sealed class DownloadOptions
     public TimeSpan MaxOfflineWait { get; set; } = TimeSpan.FromMinutes(30);
     /// <summary>Put each download in a folder for its kind (Video, Music, ...) inside <see cref="Folder"/>.</summary>
     public bool SortByType { get; set; }
+    /// <summary>
+    /// Automatic connections: a download starts with a few and adds more only while that makes it faster, up to
+    /// <see cref="Connections"/>, and stops adding the moment the server objects. Off: always <see cref="Connections"/>.
+    /// </summary>
+    public bool AutoConnections { get; set; }
+    /// <summary>How many connections an automatic download starts with.</summary>
+    public int AutoStartConnections { get; set; } = 3;
+    /// <summary>How long an automatic download watches its speed before deciding to add connections.</summary>
+    public TimeSpan AutoGrowEvery { get; set; } = TimeSpan.FromSeconds(1.5);
 }
 
 public sealed class DownloadHttpException(HttpStatusCode status, string? host = null, string? reason = null) : Exception($"Server answered {(int)status}")
@@ -454,7 +463,8 @@ public sealed partial class DownloadEngine : IDisposable
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         Exception? fatal = null, lastTrouble = null;
-        var tasks = Enumerable.Range(0, Math.Max(1, item.Connections)).Select(_ => Task.Run(async () =>
+        var refused = 0; // a connection was told "too many": no more are added
+        async Task Connection()
         {
             Segment? seg = null;
             try
@@ -474,6 +484,7 @@ public sealed partial class DownloadEngine : IDisposable
                     // This connection kept failing: it hands its part back and stops. The others carry on and take that part
                     // over, so one bad connection (or a server that allows fewer of them) never ends the whole download.
                     Interlocked.Exchange(ref lastTrouble, e);
+                    if (WantsFewerConnections(e)) Interlocked.Exchange(ref refused, 1);
                     if (seg is not null) lock (item.Lock) seg.Active = false;
                     return;
                 }
@@ -481,8 +492,54 @@ public sealed partial class DownloadEngine : IDisposable
                 Interlocked.CompareExchange(ref fatal, e, null);
                 linked.Cancel();
             }
-        }, CancellationToken.None)).ToArray();
-        await Task.WhenAll(tasks);
+        }
+
+        var cap = Math.Max(1, item.Connections);
+        var auto = Options.AutoConnections && cap > 1;
+        var tasks = new List<Task>();
+        void Open(int count) { lock (tasks) for (var i = 0; i < count; i++) tasks.Add(Task.Run(Connection, CancellationToken.None)); }
+        item.ToldTooMany = false;
+        Open(auto ? Math.Min(cap, Math.Max(1, Options.AutoStartConnections)) : cap);
+        if (auto) lock (tasks) tasks.Add(GrowAsync());
+        // Connections may be added while these run: wait until every one, old and new, has ended.
+        while (true)
+        {
+            Task[] now;
+            lock (tasks) now = [.. tasks];
+            await Task.WhenAll(now);
+            lock (tasks) if (tasks.Count == now.Length) break;
+        }
+
+        // Automatic connections: after each step, more are added only if the last ones made the download faster. A server
+        // that is already giving all it has, or that limits connections, keeps the download at the number that works.
+        async Task GrowAsync()
+        {
+            var before = item.Downloaded;
+            double best = 0;
+            var flat = 0;
+            while (!linked.IsCancellationRequested)
+            {
+                try { await Task.Delay(Options.AutoGrowEvery, linked.Token); }
+                catch (OperationCanceledException) { return; }
+                var done = item.Downloaded;
+                var speed = (done - before) / Options.AutoGrowEvery.TotalSeconds;
+                before = done;
+                int open;
+                long left;
+                lock (tasks) open = tasks.Count(t => !t.IsCompleted) - 1; // not counting this one
+                lock (item.Lock) left = item.Segments.Sum(x => x.Remaining);
+                if (open <= 0 || Volatile.Read(ref refused) == 1 || item.ToldTooMany) return; // finished, or the server said "too many"
+                if (open >= cap || left < 4 * MinSplit) return; // all allowed, or too little left to share
+                if (best > 0 && speed < best * 1.1)
+                {
+                    if (++flat >= 2) return; // two steps without a real gain: this is as fast as it gets
+                    continue;
+                }
+                flat = 0;
+                best = Math.Max(best, speed);
+                Open(Math.Min(2, cap - open));
+            }
+        }
 
         ct.ThrowIfCancellationRequested();
         if (fatal is not null) ExceptionDispatchInfo.Capture(fatal).Throw();
@@ -589,6 +646,7 @@ public sealed partial class DownloadEngine : IDisposable
             catch (DownloadHttpException e) when (!e.Retryable) { throw; }
             catch (Exception e) when (IsConnectionTrouble(e))
             {
+                if (WantsFewerConnections(e)) item.ToldTooMany = true; // automatic connections stop adding at once
                 if (progressed) failures = 0;
                 if (++failures > MaxFailures)
                     throw e is OperationCanceledException ? new ConnectionStalledException(Options.StallTimeout) : e;

@@ -68,6 +68,8 @@ public sealed class DownloadItem
     /// <summary>A line shown under the name while something special is going on ("Recording 02:13", "Joining video and audio…").</summary>
     public string? Note { get; set; }
     internal volatile bool FinishRequested;
+    /// <summary>A server answered "too many connections" during this go: automatic connections add no more.</summary>
+    internal volatile bool ToldTooMany;
     public int StreamStage { get; set; }
     public int Done0 { get; set; }
     public long Bytes0 { get; set; }

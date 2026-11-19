@@ -122,6 +122,12 @@ public partial class MainWindow
 
         // Attach to every worker the page (or one of its frames) starts. Network events are switched on for workers only, so
         // ordinary pages cost nothing extra.
-        _ = core.CallDevToolsProtocolMethodAsync("Target.setAutoAttach", """{"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}""");
+        _ = Quietly(core.CallDevToolsProtocolMethodAsync("Target.setAutoAttach", """{"autoAttach":true,"waitForDebuggerOnStart":false,"flatten":true}"""));
+    }
+
+    /// <summary>A request to the engine nobody waits for: if the tab closed first, its failure is expected and dropped.</summary>
+    private static async Task Quietly(Task work)
+    {
+        try { await work; } catch { /* the tab (and its engine) went away first */ }
     }
 }

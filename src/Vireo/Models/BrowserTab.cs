@@ -105,17 +105,41 @@ public sealed class BrowserTab : INotifyPropertyChanged
     /// <summary>Everything stopped since Vireo started, in all tabs (shown on the start page).</summary>
     public static long TotalAds, TotalTrackers;
 
-    public void CountBlocked(string host, int category)
+    private readonly HashSet<string> _blockedUrls = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int> _blockedTimes = new(StringComparer.Ordinal);
+
+    /// <summary>How many times this address (without its query) has now been blocked on this page, counting this time.</summary>
+    public int BlockedAgain(string url)
     {
+        var q = url.IndexOf('?');
+        var key = q > 0 ? url[..q] : url;
+        var n = _blockedTimes.GetValueOrDefault(key) + 1;
+        if (n > 1 || _blockedTimes.Count < 20_000) _blockedTimes[key] = n;
+        return n;
+    }
+
+    /// <summary>
+    /// Counts a blocked request once per address (without its query): an ad script that retries a blocked request in a loop,
+    /// often with a new cache-busting query each time, is one blocked item, not thousands. True when the count changed.
+    /// </summary>
+    public bool CountBlocked(string url, string host, int category)
+    {
+        var q = url.IndexOf('?');
+        var key = q > 0 ? url[..q] : url;
+        if (_blockedUrls.Contains(key)) return false;
+        if (_blockedUrls.Count < 20_000) _blockedUrls.Add(key);
         Blocked++;
         if (category == 1) { BlockedTrackers++; Interlocked.Increment(ref TotalTrackers); } else { BlockedAds++; Interlocked.Increment(ref TotalAds); }
         BlockedHosts[host] = BlockedHosts.GetValueOrDefault(host) + 1;
+        return true;
     }
 
     public void ResetBlocked()
     {
         Blocked = BlockedAds = BlockedTrackers = 0;
         BlockedHosts.Clear();
+        _blockedUrls.Clear();
+        _blockedTimes.Clear();
     }
 
     public string Title { get => _title; set => Set(ref _title, value); }

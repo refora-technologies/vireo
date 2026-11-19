@@ -1,3 +1,4 @@
+using System.IO;
 using System.Diagnostics;
 using System.Windows.Threading;
 
@@ -92,6 +93,8 @@ public sealed class UiWatchdog : IDisposable
             if (!answered.Wait(StallLimit))
             {
                 doing = string.Join(" > ", Breadcrumbs.Open().TakeLast(4));
+                // Taken now, while the thread is still stuck (after it answers, its stack shows nothing).
+                CaptureStacksIfAsked(doing.Length > 0 ? doing : "(nothing marked)", asked.Elapsed.TotalMilliseconds);
                 while (!_stop && !answered.Wait(250)) { }
             }
             var ms = asked.Elapsed.TotalMilliseconds;
@@ -106,6 +109,35 @@ public sealed class UiWatchdog : IDisposable
             }
             if (doing is not null && ms > 2000) App.Log("Not responding", new TimeoutException($"The window did not answer for {ms / 1000:0.0} s while: {doing}"));
         }
+    }
+
+    // ---- For developers: where exactly the window's thread was stuck ----
+
+    private Process? _capture;
+    private DateTime _lastCapture;
+
+    /// <summary>
+    /// With VIREO_STALL_STACKS set to the path of dotnet-stack.exe, a stall writes every thread's stack (taken while it is still
+    /// stuck) to stalls.log beside the crash log. Never on for people using Vireo: the variable is only set by a developer.
+    /// </summary>
+    private void CaptureStacksIfAsked(string? doing, double msSoFar)
+    {
+        if (doing is null || Environment.GetEnvironmentVariable("VIREO_STALL_STACKS") is not { Length: > 0 } tool || !File.Exists(tool)) return;
+        if (_capture is { HasExited: false } || DateTime.Now - _lastCapture < TimeSpan.FromSeconds(20)) return;
+        _lastCapture = DateTime.Now;
+        try
+        {
+            var log = Path.Combine(Path.GetDirectoryName(App.CrashLogPath)!, "stalls.log");
+            var psi = new ProcessStartInfo(tool, $"report -p {Environment.ProcessId}") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+            _capture = Process.Start(psi);
+            var started = DateTime.Now;
+            _ = Task.Run(async () =>
+            {
+                var text = await _capture!.StandardOutput.ReadToEndAsync();
+                File.AppendAllText(log, $"===== {started:yyyy-MM-dd HH:mm:ss} stall ({msSoFar:0} ms when taken) while: {doing}{Environment.NewLine}{text}{Environment.NewLine}");
+            });
+        }
+        catch { /* a missing or broken tool only means no stack */ }
     }
 
     public void Dispose() => _stop = true;

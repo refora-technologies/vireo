@@ -131,6 +131,24 @@ public class ResilienceTests
         Assert.False(string.IsNullOrWhiteSpace(item.Error));
     }
 
+    /// <summary>
+    /// A real free file host, with its real throttling: pixeldrain's speed-test address (random bytes, nobody's content).
+    /// Only on request, as it uses the internet and counts toward the host's daily transfer allowance: VIREO_LIVE=1.
+    /// </summary>
+    [Fact]
+    public async Task A_download_from_a_real_free_file_host_completes()
+    {
+        if (Environment.GetEnvironmentVariable("VIREO_LIVE") != "1") return;
+        var size = long.TryParse(Environment.GetEnvironmentVariable("VIREO_LIVE_BYTES"), out var b) ? b : 200L * 1024 * 1024;
+        using var box = new Sandbox();
+        using var engine = new DownloadEngine(box.State, new DownloadOptions { Folder = box.Files }); // the real defaults
+        var item = engine.Add(new DownloadRequest($"https://pixeldrain.com/api/misc/speedtest?limit={size}", "host-test.bin"));
+        await engine.WhenIdleAsync(TimeSpan.FromMinutes(30));
+
+        Assert.True(item.State == DownloadState.Completed, $"{item.State}: {item.Error}");
+        Assert.Equal(size, new FileInfo(item.FinalPath).Length);
+    }
+
     [Fact]
     public async Task A_missing_file_fails_at_once_without_pointless_retries()
     {

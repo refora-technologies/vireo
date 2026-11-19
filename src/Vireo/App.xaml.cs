@@ -13,8 +13,12 @@ public partial class App : Application
     internal static int Errors;
 
     /// <summary>Where problems are written down, so a crash leaves something to look at.</summary>
+    /// A profile kept elsewhere (VIREO_DATA: tests and developers) keeps its own log, so a test run never writes into the
+    /// person's real one.
     public static string CrashLogPath =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vireo", "crash.log");
+        Environment.GetEnvironmentVariable("VIREO_DATA") is { Length: > 0 } data
+            ? Path.Combine(Path.GetFullPath(data), "crash.log")
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vireo", "crash.log");
 
     /// <summary>The profile this Vireo runs ("--profile work"); empty for the default one.</summary>
     internal static string ProfileId { get; private set; } = ProfileFrom(Environment.GetCommandLineArgs());

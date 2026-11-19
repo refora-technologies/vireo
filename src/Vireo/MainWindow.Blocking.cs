@@ -57,16 +57,28 @@ public partial class MainWindow
         })();
         """;
 
+    /// <summary>For the site survey only: each request the blocker stops.</summary>
+    internal static Action<string>? BlockedLog;
+
     /// <summary>
     /// How a refused request is answered: as a failed connection, the way an ad blocker's refusal looks in other browsers. A plain
     /// "403" would be an answer, and pages (and ad scripts checking whether they got through) would see the request succeed.
     /// A redirect to about:blank is one the engine refuses to follow, which ends the request with a network error.
     /// </summary>
-    /// <summary>For the site survey only: each request the blocker stops.</summary>
-    internal static Action<string>? BlockedLog;
-
     private CoreWebView2WebResourceResponse BlockedResponse() =>
         _env!.CreateWebResourceResponse(null, 307, "Blocked", "Location: about:blank\r\nCache-Control: no-store");
+
+    /// <summary>Blocked this many times on one page, an address is answered slowly from then on (see <see cref="SlowRefusal"/>).</summary>
+    internal const int RepeatsBeforeSlowRefusal = 3;
+
+    /// <summary>
+    /// How long to hold back the refusal of an address a page keeps asking for: a quarter of a second more each time, up to five.
+    /// Some ad code retries a refused request at once, for ever: on one news site a single ad configuration file was asked for
+    /// 71,000 times in four minutes, about 300 a second. That load on the page engine can make Vireo's own window stop answering
+    /// (the engine's window sits inside Vireo's, and Windows links their input). Refused slowly, the loop runs a few times a
+    /// minute instead; the ad still never loads, and to the page it is still a failed connection.
+    /// </summary>
+    internal static TimeSpan SlowRefusal(int times) => TimeSpan.FromMilliseconds(Math.Min(5000, 250 * Math.Max(1, times - RepeatsBeforeSlowRefusal)));
 
     internal bool CommunityListsReady => _filters.BlockedHostCount > 50000;
 
@@ -190,10 +202,22 @@ public partial class MainWindow
             if (IsAllowedSite(top)) return;
             var verdict = _filters.Check(uri, top, TypeOf(e.ResourceContext));
             if (!verdict.Block) return;
-            e.Response = BlockedResponse();
-            tab.CountBlocked(HostOnly(uri), verdict.Category);
+            var times = tab.BlockedAgain(uri);
+            if (times > RepeatsBeforeSlowRefusal)
+            {
+                // A script retrying in a loop: refused all the same, but only after a growing pause (see SlowRefusal).
+                var deferral = e.GetDeferral();
+                var args = e;
+                _ = Task.Delay(SlowRefusal(times)).ContinueWith(_ => Dispatcher.BeginInvoke(() =>
+                {
+                    try { args.Response = BlockedResponse(); } catch { /* the page went away meanwhile */ }
+                    finally { try { deferral.Complete(); } catch { } }
+                }), TaskScheduler.Default);
+            }
+            else e.Response = BlockedResponse();
             BlockedLog?.Invoke($"BLOCKED {e.ResourceContext} {uri}");
-            if (tab.Owner is { } owner && tab == owner.Active) Dispatcher.BeginInvoke(owner.UpdateShield, System.Windows.Threading.DispatcherPriority.Background);
+            // Counted, and the toolbar told, only when it is a new address; and the toolbar at most a few times a second.
+            if (tab.CountBlocked(uri, HostOnly(uri), verdict.Category) && tab.Owner is { } owner && tab == owner.Active) owner.QueueShieldUpdate();
         };
 
         core.NavigationStarting += (_, e) =>
@@ -280,8 +304,7 @@ public partial class MainWindow
 
     internal void RecordPopupBlocked(BrowserTab tab, string uri)
     {
-        tab.CountBlocked(HostOnly(uri), 0);
-        if (tab == Active) Dispatcher.BeginInvoke(UpdateShield, System.Windows.Threading.DispatcherPriority.Background);
+        if (tab.CountBlocked(uri, HostOnly(uri), 0) && tab == Active) QueueShieldUpdate();
     }
 
     private static string HostOnly(string url) => Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host : url;
@@ -359,6 +382,19 @@ public partial class MainWindow
 
     private int _shownCount = -1;
 
+    private bool _shieldQueued;
+
+    /// <summary>
+    /// The shield's number is redrawn at most four times a second, however many requests are blocked. (A busy page can block
+    /// hundreds a second; redrawing for each flooded the window's thread and made the toolbar shake.)
+    /// </summary>
+    internal void QueueShieldUpdate()
+    {
+        if (_shieldQueued) return;
+        _shieldQueued = true;
+        _ = Task.Delay(250).ContinueWith(_ => Dispatcher.BeginInvoke(() => { _shieldQueued = false; UpdateShield(); }, System.Windows.Threading.DispatcherPriority.Background));
+    }
+
     internal void UpdateShield()
     {
         var tab = Active;
@@ -368,7 +404,8 @@ public partial class MainWindow
         ShieldCount.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         ShieldIcon.Foreground = on ? (count > 0 ? UiKit.Brush("Accent") : UiKit.Brush("Text2")) : UiKit.Brush("Text3");
         ShieldButton.ToolTip = !_settings.BlockAds ? "Blocking is off" : on ? $"{count} blocked on this page" : "Blocking is off for this site";
-        if (count > _shownCount && count > 0) PopIn(ShieldCount);
+        // A small pop when the number first appears on a page; never on every increase (that made it bounce).
+        if (_shownCount <= 0 && count > 0) PopIn(ShieldCount);
         _shownCount = count;
     }
 

@@ -25,8 +25,9 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         return i >= 0 && outDir.Length > 0 && baseUrl.Length > 0;
     }
 
-    private void Check(string name, bool ok, string detail = "")
+    private void Check(string name, bool ok, string? detail = "")
     {
+        detail ??= "";
         _results.Add(new { name, ok, detail });
         if (!ok) _failed = true;
         Console.WriteLine($"{(ok ? "PASS" : "FAIL")}  {name}  {detail}");

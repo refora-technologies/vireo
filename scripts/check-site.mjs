@@ -2,7 +2,7 @@
 // pages in Edge and reports anything the security policy blocks, missing files, and how the rules files are served (type,
 // caching, CORS: a page on another site must be able to read them too), and that the published rules are exactly the
 // signed master copy in this repository.
-// The website lives beside this repository, in ../vireo-website (or wherever VIREO_SITE says).
+// The website lives beside this repository, in ../Website (or wherever VIREO_SITE says).
 // Run:  cd scripts && node check-site.mjs
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
@@ -10,7 +10,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const folder = process.env.VIREO_SITE ?? fileURLToPath(new URL('../../vireo-website/', import.meta.url));
+const folder = process.env.VIREO_SITE ?? fileURLToPath(new URL('../../Website/', import.meta.url));
 const root = join(folder, 'public') + sep;
 const toml = await readFile(join(folder, 'netlify.toml'), 'utf8');
 

@@ -52,6 +52,9 @@ to a key of the test's own (`HKCU\Software\VireoSelfTest\Run`, removed at the en
 notification area's messages are recorded, not shown; "when done" only records what it would have done; and the
 downloader started alone (`--downloads --quiet`) runs in a profile folder inside the out folder.
 
+The `soundname` step plays the test song at a whisper (0.3% volume) and checks that the sound's entry in Windows carries
+Vireo's name and icon (`Services/SoundLabel.cs`). It is skipped on a PC with no sound output.
+
 Public sites (needs the internet, only on request): `VIREO_STEPS=sites` opens each page in the survey list, presses play
 and its Download button, and reports what was found. `VIREO_SITES=<names>` picks some of them; `VIREO_SURVEY_URL=<page>`
 adds one page of your own; `VIREO_SURVEY_DOWNLOAD=1` saves the smallest quality into the out folder and checks it plays;

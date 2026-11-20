@@ -65,7 +65,9 @@ public partial class MainWindow
         async Task<CoreWebView2Environment> Create()
         {
             var options = new CoreWebView2EnvironmentOptions(arguments) { AreBrowserExtensionsEnabled = true };
-            return await CoreWebView2Environment.CreateAsync(null, data, options);
+            var env = await CoreWebView2Environment.CreateAsync(null, data, options);
+            SoundLabel.Start(); // the pages' sound shows as Vireo in the Windows mixer, not as the engine's helper program
+            return env;
         }
     }
 

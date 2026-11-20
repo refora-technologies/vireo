@@ -400,7 +400,11 @@ public partial class MainWindow : Window
         core.NavigationStarting += (_, _) => { tab.IsLoading = true; if (tab == O().Active) O().RefreshToolbar(); };
         core.NavigationCompleted += (_, e) => { tab.IsLoading = false; UpdateHistory(tab, core); if (e.IsSuccess) O().RecordVisit(tab, core); if (tab == O().Active) O().RefreshToolbar(); };
         core.HistoryChanged += (_, _) => { UpdateHistory(tab, core); if (tab == O().Active) O().RefreshToolbar(); };
-        core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+        core.IsDocumentPlayingAudioChanged += (_, _) =>
+        {
+            tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+            if (tab.IsPlayingAudio) SoundLabel.Nudge();
+        };
         core.FaviconChanged += async (_, _) =>
         {
             tab.Favicon = await LoadFaviconAsync(core);

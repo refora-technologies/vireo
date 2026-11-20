@@ -18,6 +18,12 @@ Tabs playing sound, still loading or pinned are never touched. On computers with
 timers shorten (10 s / 2 min) and Chromium's low-end mode is switched on. The menu shows total memory,
 "See all tabs" (Ctrl+Shift+A) lists every tab with its state, and "Free memory now" does it at once.
 
+**Shows as Vireo in the volume mixer.** The page engine plays every sound from a helper program of its own
+(msedgewebview2.exe), so the Windows Volume mixer used to show the engine's name. Vireo puts its own name and icon on the
+sound of its pages, each time Windows makes a new entry for it (sound starting, an output added or changed). Only Vireo's
+own processes are touched: other apps built on the same engine keep theirs. Mixers that name apps by their program file
+only, not by the name an app gives its sound, still show the engine's name; Vireo cannot change that.
+
 **A real download manager.** Downloads started by pages are taken over by Vireo's own engine
 (`src/Vireo/Downloads`): the file is split over several connections (automatic by default: it starts with three and
 adds more, up to 16, only while that makes the download faster, and stops adding the moment a server says "too many";

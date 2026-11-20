@@ -189,6 +189,7 @@ internal sealed partial class SelfTest(MainWindow w, string outDir, string baseU
         await Step("windows", RunWindowStepsAsync);
         await Step("profiles", RunProfileAndSyncStepsAsync);
         await Step("media", RunMediaStepsAsync);
+        await Step("soundname", RunSoundNameStepsAsync);
         await Step("youtube", RunYouTubeStepsAsync);
         await Step("home", RunHomeStepsAsync);
         await Step("stress", RunStressStepsAsync);

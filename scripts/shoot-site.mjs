@@ -1,11 +1,11 @@
 // Screenshots of Vireo's website (desktop, laptop and phone) into out/site. The website lives beside this repository, in
-// ../vireo-website (or wherever VIREO_SITE says).
+// ../Website (or wherever VIREO_SITE says).
 // Run:  cd scripts && node shoot-site.mjs
 import { chromium } from 'playwright-core';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-const folder = process.env.VIREO_SITE ?? fileURLToPath(new URL('../../vireo-website/', import.meta.url));
+const folder = process.env.VIREO_SITE ?? fileURLToPath(new URL('../../Website/', import.meta.url));
 const site = pathToFileURL(join(folder, 'public', 'index.html')).href;
 const out = fileURLToPath(new URL('../out/site/', import.meta.url));
 await mkdir(out, { recursive: true });
